@@ -4,6 +4,29 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: synthora-postgres
+    platform: linux/arm64
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-synthora_dev}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sitemap-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-synthora_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Firecrawl Backend Service
   windchaser-backend:
     image: windchaser-service:latest
@@ -22,6 +45,15 @@ services:
       - PLAYWRIGHT_MAX_CONCURRENT=3
       - CONTENT_MAX_SIZE_MB=10
       - CONTENT_MAX_TIMEOUT_MS=60000
+      # Database configuration for Go backend
+      - DB_HOST=postgres
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_NAME=${DB_NAME:-synthora_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      # Redis URL (optional if redis enabled)
+      - REDIS_URL=redis:6379
       # Playwright ARM64 configuration
       - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true
       - PLAYWRIGHT_BROWSERS_PATH=/usr/bin
@@ -33,6 +65,11 @@ services:
       - windchaser_temp:/app/temp
     networks:
       - sitemap-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -121,6 +158,8 @@ volumes:
   windchaser_temp:
     driver: local
   redis_data:
+    driver: local
+  postgres_data:
     driver: local
   nginx_logs:
     driver: local

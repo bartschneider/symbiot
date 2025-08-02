@@ -13,7 +13,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { theme } from '@/styles/theme';
-import { ChartDataPoint, ChartConfig } from '@/types';
+import { ChartDataPoint } from '@/types';
 
 const ChartContainer = styled(motion.div)`
   width: 100%;
@@ -253,6 +253,31 @@ function LineChart({
 
   const ChartComponent = chartType === 'area' ? AreaChart : RechartsLineChart;
 
+  // Adapter for Recharts series onClick: supports common signatures across versions:
+  // (data, index, event) OR (event with activePayload/activeTooltipIndex)
+  // Using 'any' avoids strict incompatibilities with Recharts' internal MouseEventHandler typings.
+  const handleRechartsSeriesClick = (...args: any[]) => {
+    // Prefer (data, index, event) shape
+    const [arg0, arg1] = args;
+    const maybeDatum = arg0 as ChartDatum | undefined;
+    const maybeIndex = typeof arg1 === 'number' ? (arg1 as number) : -1;
+    if (maybeDatum && maybeIndex >= 0) {
+      handleDataPointClick(maybeDatum, maybeIndex);
+      return;
+    }
+    // Fallback to augmented event (activePayload/activeTooltipIndex)
+    const e = args[0] as {
+      activePayload?: Array<{ payload?: ChartDatum }>;
+      activeTooltipIndex?: number;
+    } | undefined;
+    const datum = e?.activePayload?.[0]?.payload;
+    const index =
+      typeof e?.activeTooltipIndex === 'number' ? (e!.activeTooltipIndex as number) : -1;
+    if (datum && index >= 0) {
+      handleDataPointClick(datum, index);
+    }
+  };
+
   return (
     <ChartContainer
       className={className}
@@ -347,7 +372,7 @@ function LineChart({
                 animationBegin={0}
                 // Recharts animation visibility controlled after container animation completes
                 isAnimationActive={animationComplete}
-                onClick={handleDataPointClick}
+                onClick={handleRechartsSeriesClick}
               />
             ) : (
               <Line
@@ -370,7 +395,7 @@ function LineChart({
                 animationBegin={0}
                 // Recharts animation visibility controlled after container animation completes
                 isAnimationActive={animationComplete}
-                onClick={handleDataPointClick}
+                onClick={handleRechartsSeriesClick}
               />
             )}
           </ChartComponent>

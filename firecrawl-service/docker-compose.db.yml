@@ -1,8 +1,6 @@
 # PostgreSQL Database Docker Compose Configuration
 # This extends the main docker-compose configuration with database services
 
-version: '3.8'
-
 services:
   # PostgreSQL Database for extraction history
   postgres:
