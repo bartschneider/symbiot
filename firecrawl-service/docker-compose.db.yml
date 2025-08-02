@@ -7,12 +7,12 @@ services:
   # PostgreSQL Database for extraction history
   postgres:
     image: postgres:15-alpine
-    container_name: firecrawl-postgres
+    container_name: windchaser-postgres
     platform: linux/arm64
     environment:
-      POSTGRES_DB: firecrawl_db
-      POSTGRES_USER: firecrawl_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-firecrawl_password}
+      POSTGRES_DB: windchaser_db
+      POSTGRES_USER: windchaser_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-windchaser_password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
     ports:
       - "${DB_PORT:-5433}:5432"
@@ -24,7 +24,7 @@ services:
       - sitemap-dev-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U firecrawl_user -d firecrawl_db"]
+      test: ["CMD-SHELL", "pg_isready -U windchaser_user -d windchaser_db"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -47,10 +47,10 @@ services:
   # PgAdmin for database management (development only)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: firecrawl-pgadmin
+    container_name: windchaser-pgadmin
     platform: linux/arm64
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@firecrawl.com
+      PGADMIN_DEFAULT_EMAIL: admin@windchaser.com
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -69,7 +69,7 @@ services:
   # Redis Cache (if not already defined in main compose)
   redis-cache:
     image: redis:7-alpine
-    container_name: firecrawl-redis-cache
+    container_name: windchaser-redis-cache
     platform: linux/arm64
     ports:
       - "${REDIS_CACHE_PORT:-6380}:6379"

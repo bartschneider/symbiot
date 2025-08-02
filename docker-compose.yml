@@ -5,10 +5,10 @@ version: '3.8'
 
 services:
   # Firecrawl Backend Service
-  firecrawl-backend:
-    image: firecrawl-service:latest
+  windchaser-backend:
+    image: windchaser-service:latest
     platform: linux/arm64
-    container_name: firecrawl-backend
+    container_name: windchaser-backend
     environment:
       - NODE_ENV=production
       - PORT=3001
@@ -29,8 +29,8 @@ services:
     ports:
       - "$BACKEND_PORT:3001"
     volumes:
-      - firecrawl_logs:/app/logs
-      - firecrawl_temp:/app/temp
+      - windchaser_logs:/app/logs
+      - windchaser_temp:/app/temp
     networks:
       - sitemap-network
     restart: unless-stopped
@@ -56,12 +56,12 @@ services:
     container_name: synthora-frontend
     environment:
       - NODE_ENV=production
-      - VITE_API_BASE_URL=http://firecrawl-backend:3001
+      - VITE_API_BASE_URL=http://windchaser-backend:3001
       - VITE_APP_NAME=Synthora Analytics
     ports:
       - "$FRONTEND_PORT:80"
     depends_on:
-      firecrawl-backend:
+      windchaser-backend:
         condition: service_healthy
     networks:
       - sitemap-network
@@ -116,9 +116,9 @@ networks:
 
 # Volumes
 volumes:
-  firecrawl_logs:
+  windchaser_logs:
     driver: local
-  firecrawl_temp:
+  windchaser_temp:
     driver: local
   redis_data:
     driver: local

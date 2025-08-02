@@ -94,7 +94,7 @@ server {
 
     # API proxy to backend service
     location /api/ {
-        proxy_pass http://firecrawl-backend:3001;
+        proxy_pass http://windchaser-backend:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';

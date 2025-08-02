@@ -5,12 +5,12 @@ version: '3.8'
 
 services:
   # Firecrawl Backend Service (Development)
-  firecrawl-backend-dev:
+  windchaser-backend-dev:
     build:
-      context: ./firecrawl-service
+      context: ./windchaser-service
       dockerfile: Dockerfile.dev
     platform: linux/arm64
-    container_name: firecrawl-backend-dev
+    container_name: windchaser-backend-dev
     environment:
       - NODE_ENV=development
       - PORT=3001
@@ -22,15 +22,15 @@ services:
       - CACHE_TTL_SECONDS=300
       - PLAYWRIGHT_TIMEOUT=30000
       - PLAYWRIGHT_MAX_CONCURRENT=2
-      - DEBUG=firecrawl:*
+      - DEBUG=windchaser:*
     ports:
       - "$BACKEND_PORT:3001"
       - "9229:9229"  # Node.js debugger port
     volumes:
-      - ./firecrawl-service/src:/app/src:ro
-      - ./firecrawl-service/package.json:/app/package.json:ro
-      - firecrawl_dev_logs:/app/logs
-      - firecrawl_dev_temp:/app/temp
+      - ./windchaser-service/src:/app/src:ro
+      - ./windchaser-service/package.json:/app/package.json:ro
+      - windchaser_dev_logs:/app/logs
+      - windchaser_dev_temp:/app/temp
     networks:
       - sitemap-dev-network
     restart: unless-stopped
@@ -67,7 +67,7 @@ services:
       - ./tsconfig.json:/app/tsconfig.json:ro
       - ./index.html:/app/index.html:ro
     depends_on:
-      - firecrawl-backend-dev
+      - windchaser-backend-dev
     networks:
       - sitemap-dev-network
     restart: unless-stopped
@@ -112,9 +112,9 @@ networks:
 
 # Volumes
 volumes:
-  firecrawl_dev_logs:
+  windchaser_dev_logs:
     driver: local
-  firecrawl_dev_temp:
+  windchaser_dev_temp:
     driver: local
   redis_dev_data:
     driver: local

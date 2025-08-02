@@ -193,8 +193,8 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
     <>
       <HeaderContainer className={className}>
         <Nav>
-          <Brand to="/" aria-label="SYNTHORA Home">
-            SYNTHORA
+          <Brand to="/" aria-label="Symbiot Home">
+            Symbiot
           </Brand>
           
           <NavLinks>

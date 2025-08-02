@@ -132,8 +132,8 @@ class AuthService {
     
     return jwt.sign(payload, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn,
-      issuer: 'firecrawl-service',
-      audience: 'firecrawl-api'
+      issuer: 'windchaser-service',
+      audience: 'windchaser-api'
     });
   }
 
@@ -151,8 +151,8 @@ class AuthService {
       
       // Verify token signature and expiration
       const decoded = jwt.verify(token, config.jwt.secret, {
-        issuer: 'firecrawl-service',
-        audience: 'firecrawl-api'
+        issuer: 'windchaser-service',
+        audience: 'windchaser-api'
       });
       
       return decoded;

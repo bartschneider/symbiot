@@ -1,5 +1,5 @@
 {
-  "name": "firecrawl-service",
+  "name": "windchaser-service",
   "version": "1.0.0",
   "description": "A web scraping and HTML-to-Markdown conversion service with JWT authentication",
   "main": "src/app.js",

@@ -4,7 +4,7 @@ import convertRoutes from './convert.js';
 import sitemapRoutes from './sitemap.js';
 import extractionHistoryRoutes from './extractionHistory.js';
 import { authService } from '../services/auth.js';
-import { firecrawlService } from '../services/firecrawl.js';
+import { windchaserService } from '../services/windchaser.js';
 import { cacheService } from '../services/cache.js';
 import { healthCheck } from '../services/database.js';
 
@@ -85,7 +85,7 @@ router.get('/info', (req, res) => {
         window: '15 minutes',
         maxRequests: 100
       },
-      documentation: 'https://docs.firecrawl.dev'
+      documentation: 'https://docs.windchaser.dev'
     }
   });
 });
@@ -116,7 +116,7 @@ router.get('/stats', async (req, res) => {
     }
     
     const authStats = authService.getStats();
-    const serviceHealth = firecrawlService.getHealth();
+    const serviceHealth = windchaserService.getHealth();
     const cacheStats = cacheService.getStats();
     
     res.json({

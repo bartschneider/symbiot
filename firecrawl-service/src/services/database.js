@@ -12,9 +12,9 @@ let pool = null;
 const dbConfig = {
   host: config.database?.host || process.env.DB_HOST || 'localhost',
   port: config.database?.port || process.env.DB_PORT || 5433,
-  database: config.database?.name || process.env.DB_NAME || 'firecrawl_db',
-  user: config.database?.user || process.env.DB_USER || 'firecrawl_user',
-  password: config.database?.password || process.env.DB_PASSWORD || 'firecrawl_password',
+  database: config.database?.name || process.env.DB_NAME || 'windchaser_db',
+  user: config.database?.user || process.env.DB_USER || 'windchaser_user',
+  password: config.database?.password || process.env.DB_PASSWORD || 'windchaser_password',
   
   // Connection pool settings
   min: config.database?.pool?.min || process.env.DATABASE_POOL_MIN || 2,
@@ -29,7 +29,7 @@ const dbConfig = {
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   
   // Application settings
-  application_name: 'firecrawl-service',
+  application_name: 'windchaser-service',
   
   // Error handling
   keepAlive: true,

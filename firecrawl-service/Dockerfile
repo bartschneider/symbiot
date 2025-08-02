@@ -106,14 +106,14 @@ COPY src/ ./src/
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S firecrawl -u 1001 -G nodejs
+    adduser -S windchaser -u 1001 -G nodejs
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/logs /app/temp && \
-    chown -R firecrawl:nodejs /app
+    chown -R windchaser:nodejs /app
 
 # Switch to non-root user
-USER firecrawl
+USER windchaser
 
 # Set production environment variables
 ENV NODE_ENV=production
@@ -143,7 +143,7 @@ ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "src/app.js"]
 
 # Metadata
-LABEL maintainer="firecrawl-team"
+LABEL maintainer="windchaser-team"
 LABEL version="1.0.0"
 LABEL description="Firecrawl Service - Web scraping and HTML-to-Markdown conversion API"
 LABEL architecture="arm64"

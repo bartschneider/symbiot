@@ -18,7 +18,7 @@ export const corsOptions = {
       'http://localhost:3030',
       'http://localhost:3001',
       'http://localhost:5173',
-      'https://firecrawl.dev',
+      'https://windchaser.dev',
       // Add your frontend domains here
     ];
     

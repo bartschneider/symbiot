@@ -76,7 +76,7 @@ class FetcherService {
       // Create new page with context
       const context = await this.browser.newContext({
         viewport: { width: 1280, height: 720 },
-        userAgent: 'Mozilla/5.0 (compatible; FirecrawlBot/1.0; +https://firecrawl.dev)',
+        userAgent: 'Mozilla/5.0 (compatible; FirecrawlBot/1.0; +https://windchaser.dev)',
         ignoreHTTPSErrors: options.ignoreHTTPSErrors || false,
         extraHTTPHeaders: {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',

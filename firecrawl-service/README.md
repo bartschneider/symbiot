@@ -24,7 +24,7 @@ A web scraping and HTML-to-Markdown conversion service with JWT authentication, 
 
 1. Clone the repository and navigate to the service directory:
 ```bash
-cd firecrawl-service
+cd windchaser-service
 ```
 
 2. Install dependencies:

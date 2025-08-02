@@ -150,7 +150,7 @@ build_images() {
     
     # Build backend
     print_status "Building backend image..."
-    if docker build --platform linux/arm64 -t firecrawl-service:latest -f firecrawl-service/Dockerfile firecrawl-service/; then
+    if docker build --platform linux/arm64 -t windchaser-service:latest -f windchaser-service/Dockerfile windchaser-service/; then
         print_success "Backend image built successfully"
     else
         print_error "Failed to build backend image"
@@ -175,7 +175,7 @@ build_dev_images() {
     
     # Build backend dev
     print_status "Building backend development image..."
-    if docker build --platform linux/arm64 -t firecrawl-service:dev -f firecrawl-service/Dockerfile.dev firecrawl-service/; then
+    if docker build --platform linux/arm64 -t windchaser-service:dev -f windchaser-service/Dockerfile.dev windchaser-service/; then
         print_success "Backend dev image built successfully"
     else
         print_error "Failed to build backend dev image"
@@ -368,7 +368,7 @@ clean_up() {
     # Remove images
     print_status "Removing application images..."
     docker rmi synthora-frontend:latest synthora-frontend:dev 2>/dev/null || true
-    docker rmi firecrawl-service:latest firecrawl-service:dev 2>/dev/null || true
+    docker rmi windchaser-service:latest windchaser-service:dev 2>/dev/null || true
     
     # Clean up unused resources
     print_status "Cleaning up unused Docker resources..."

@@ -259,7 +259,7 @@ const CustomComponent = styled.div`
 ### Environment Variables
 ```bash
 # .env.local
-VITE_APP_TITLE="SYNTHORA"
+VITE_APP_TITLE="Symbiot"
 VITE_API_BASE_URL="https://api.synthora.dev"
 VITE_ANALYTICS_ID="GA_MEASUREMENT_ID"
 ```
@@ -346,6 +346,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Built with ❤️ by SYNTHORA**
+**Built with ❤️ by Symbiot**
 
 *Transforming data into insights through elegant visualization*

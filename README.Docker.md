@@ -31,8 +31,8 @@ Complete Docker containerization setup for ARM64 architecture with development a
 - `docker-compose.dev.yml` - Development with hot reloading
 - `sitemap-scraper-frontend/Dockerfile` - Production frontend
 - `sitemap-scraper-frontend/Dockerfile.dev` - Development frontend
-- `firecrawl-service/Dockerfile` - Production backend
-- `firecrawl-service/Dockerfile.dev` - Development backend
+- `windchaser-service/Dockerfile` - Production backend
+- `windchaser-service/Dockerfile.dev` - Development backend
 
 ### Scripts
 - `build.sh` - Main build and development script
@@ -159,8 +159,8 @@ volumes:
   - ./sitemap-scraper-frontend/public:/app/public
   
   # Backend hot reloading
-  - ./firecrawl-service/src:/app/src
-  - ./firecrawl-service/tests:/app/tests
+  - ./windchaser-service/src:/app/src
+  - ./windchaser-service/tests:/app/tests
 ```
 
 ## 🧪 Testing
@@ -247,7 +247,7 @@ networks:
 │   ├── Dockerfile.dev            # Development frontend
 │   ├── nginx.conf                # nginx configuration
 │   └── ...
-└── firecrawl-service/
+└── windchaser-service/
     ├── Dockerfile                # Production backend
     ├── Dockerfile.dev           # Development backend
     └── ...

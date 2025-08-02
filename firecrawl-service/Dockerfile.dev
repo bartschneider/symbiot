@@ -46,11 +46,11 @@ COPY tests/ ./tests/
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S firecrawl -u 1001 -G nodejs && \
+    adduser -S windchaser -u 1001 -G nodejs && \
     mkdir -p /app/logs /app/temp && \
-    chown -R firecrawl:nodejs /app
+    chown -R windchaser:nodejs /app
 
-USER firecrawl
+USER windchaser
 
 # Expose ports
 EXPOSE 3001 9229
@@ -59,7 +59,7 @@ EXPOSE 3001 9229
 ENV NODE_ENV=development
 ENV PORT=3001
 ENV JWT_SECRET=dev-jwt-secret-not-for-production
-ENV DEBUG=firecrawl:*
+ENV DEBUG=windchaser:*
 
 # Start development server with nodemon and debugging
 CMD ["npm", "run", "dev"]

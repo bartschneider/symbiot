@@ -113,7 +113,7 @@ const Footer: React.FC<FooterProps> = ({ className }) => {
     <FooterContainer className={className}>
       <FooterContent>
         <Copyright>
-          © {currentYear} SYNTHORA. Advanced Data Intelligence.
+          © {currentYear} Symbiot. Advanced Data Intelligence.
         </Copyright>
         
         <FooterLinks>

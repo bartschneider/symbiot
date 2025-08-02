@@ -1,4 +1,4 @@
-import { firecrawlService } from '../services/firecrawl.js';
+import { windchaserService } from '../services/windchaser.js';
 
 /**
  * Convert single URL to Markdown
@@ -19,7 +19,7 @@ export const convertUrl = async (req, res) => {
     console.log(`[${req.requestId}] Converting URL: ${url} for user: ${req.user?.username || 'anonymous'}`);
     
     // Call conversion service
-    const result = await firecrawlService.convertUrl(url, requestOptions);
+    const result = await windchaserService.convertUrl(url, requestOptions);
     
     if (result.success) {
       res.json({
@@ -73,7 +73,7 @@ export const convertUrlToText = async (req, res) => {
     
     console.log(`[${req.requestId}] Converting URL to text: ${url}`);
     
-    const result = await firecrawlService.convertUrlToText(url, requestOptions);
+    const result = await windchaserService.convertUrlToText(url, requestOptions);
     
     if (result.success) {
       res.json({
@@ -128,7 +128,7 @@ export const convertUrlsBatch = async (req, res) => {
     
     console.log(`[${req.requestId}] Batch converting ${urls.length} URLs`);
     
-    const result = await firecrawlService.convertUrlsBatch(urls, requestOptions);
+    const result = await windchaserService.convertUrlsBatch(urls, requestOptions);
     
     if (result.success) {
       res.json({
@@ -175,7 +175,7 @@ export const validateUrl = async (req, res) => {
     
     console.log(`[${req.requestId}] Validating URL: ${url}`);
     
-    const validation = firecrawlService.validateUrl(url);
+    const validation = windchaserService.validateUrl(url);
     
     res.json({
       success: true,
@@ -210,7 +210,7 @@ export const validateUrl = async (req, res) => {
  */
 export const getConfig = async (req, res) => {
   try {
-    const config = firecrawlService.getConfig();
+    const config = windchaserService.getConfig();
     
     // Filter sensitive information based on user role
     const publicConfig = {
@@ -261,7 +261,7 @@ export const getConfig = async (req, res) => {
  */
 export const getHealth = async (req, res) => {
   try {
-    const health = firecrawlService.getHealth();
+    const health = windchaserService.getHealth();
     
     // Public health information
     const publicHealth = {
@@ -319,7 +319,7 @@ export const clearCaches = async (req, res) => {
   try {
     console.log(`[${req.requestId}] Clearing caches - requested by: ${req.user?.username}`);
     
-    const result = firecrawlService.clearCaches();
+    const result = windchaserService.clearCaches();
     
     res.json({
       success: true,

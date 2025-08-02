@@ -2,16 +2,16 @@
 -- This script sets up the complete schema for tracking extraction sessions and URL processing
 
 -- Create database user with appropriate privileges
-CREATE USER IF NOT EXISTS firecrawl_user WITH PASSWORD 'firecrawl_password';
+CREATE USER IF NOT EXISTS windchaser_user WITH PASSWORD 'windchaser_password';
 
 -- Create the database (if not exists)
-CREATE DATABASE IF NOT EXISTS firecrawl_db OWNER firecrawl_user;
+CREATE DATABASE IF NOT EXISTS windchaser_db OWNER windchaser_user;
 
 -- Grant necessary privileges
-GRANT ALL PRIVILEGES ON DATABASE firecrawl_db TO firecrawl_user;
+GRANT ALL PRIVILEGES ON DATABASE windchaser_db TO windchaser_user;
 
--- Connect to the firecrawl database
-\c firecrawl_db;
+-- Connect to the windchaser database
+\c windchaser_db;
 
 -- Enable UUID extension for unique identifiers
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -209,10 +209,10 @@ CREATE TRIGGER trigger_url_extractions_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Grant privileges to the firecrawl user
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO firecrawl_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO firecrawl_user;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO firecrawl_user;
+-- Grant privileges to the windchaser user
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO windchaser_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO windchaser_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO windchaser_user;
 
 -- Create sample data for testing (optional)
 -- This can be commented out for production

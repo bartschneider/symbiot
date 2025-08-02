@@ -20,9 +20,9 @@ ENV_FILE="$PROJECT_ROOT/.env"
 # Default values
 DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5433}
-DB_NAME=${DB_NAME:-firecrawl_db}
-DB_USER=${DB_USER:-firecrawl_user}
-DB_PASSWORD=${DB_PASSWORD:-firecrawl_password}
+DB_NAME=${DB_NAME:-windchaser_db}
+DB_USER=${DB_USER:-windchaser_user}
+DB_PASSWORD=${DB_PASSWORD:-windchaser_password}
 
 # Functions
 print_info() {
@@ -217,10 +217,10 @@ create_env_template() {
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5433
-DB_NAME=firecrawl_db
-DB_USER=firecrawl_user
-DB_PASSWORD=firecrawl_password
-DATABASE_URL=postgresql://firecrawl_user:firecrawl_password@localhost:5433/firecrawl_db
+DB_NAME=windchaser_db
+DB_USER=windchaser_user
+DB_PASSWORD=windchaser_password
+DATABASE_URL=postgresql://windchaser_user:windchaser_password@localhost:5433/windchaser_db
 
 # Database Pool Configuration
 DATABASE_POOL_MIN=2
@@ -247,7 +247,7 @@ RATE_LIMIT_MAX_REQUESTS=1000
 CACHE_TTL_SECONDS=300
 PLAYWRIGHT_TIMEOUT=30000
 PLAYWRIGHT_MAX_CONCURRENT=2
-DEBUG=firecrawl:*
+DEBUG=windchaser:*
 EOF
 
     print_success "Environment template created at $env_example"
@@ -279,9 +279,9 @@ show_help() {
     echo "Environment Variables:"
     echo "  DB_HOST             Database host (default: localhost)"
     echo "  DB_PORT             Database port (default: 5433)"
-    echo "  DB_NAME             Database name (default: firecrawl_db)"
-    echo "  DB_USER             Database user (default: firecrawl_user)"
-    echo "  DB_PASSWORD         Database password (default: firecrawl_password)"
+    echo "  DB_NAME             Database name (default: windchaser_db)"
+    echo "  DB_USER             Database user (default: windchaser_user)"
+    echo "  DB_PASSWORD         Database password (default: windchaser_password)"
     echo ""
 }
 
@@ -306,7 +306,7 @@ stop_database() {
 
 # Backup database
 backup_database() {
-    local backup_file="$SCRIPT_DIR/backups/firecrawl_backup_$(date +%Y%m%d_%H%M%S).sql"
+    local backup_file="$SCRIPT_DIR/backups/windchaser_backup_$(date +%Y%m%d_%H%M%S).sql"
     
     print_info "Creating database backup: $backup_file"
     

@@ -49,7 +49,7 @@ export const config = {
 
   // Database Configuration
   database: {
-    url: process.env.DATABASE_URL || 'postgresql://firecrawl_user:secure_password_change_me@localhost:5432/firecrawl_db',
+    url: process.env.DATABASE_URL || 'postgresql://windchaser_user:secure_password_change_me@localhost:5432/windchaser_db',
     pool: {
       min: parseInt(process.env.DATABASE_POOL_MIN) || 2,
       max: parseInt(process.env.DATABASE_POOL_MAX) || 10,

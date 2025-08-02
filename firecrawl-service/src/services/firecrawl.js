@@ -434,5 +434,5 @@ class FirecrawlService {
 }
 
 // Export singleton instance
-export const firecrawlService = new FirecrawlService();
+export const windchaserService = new FirecrawlService();
 export default FirecrawlService;
