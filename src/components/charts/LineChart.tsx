@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import styled from '@emotion/styled';
 import { motion } from 'framer-motion';
 import {
@@ -72,9 +72,12 @@ const ChartControls = styled.div`
 
 const ChartButton = styled.button<{ $active?: boolean }>`
   padding: ${theme.spacing.xs} ${theme.spacing.sm};
-  background: ${({ $active }) => $active ? theme.colors.accent : 'transparent'};
-  color: ${({ $active }) => $active ? theme.colors.bg.primary : theme.colors.text.secondary};
-  border: 1px solid ${({ $active }) => $active ? theme.colors.accent : theme.colors.border};
+  background: ${({ $active }: { $active?: boolean }) =>
+    $active ? theme.colors.accent : 'transparent'};
+  color: ${({ $active }: { $active?: boolean }) =>
+    $active ? theme.colors.bg.primary : theme.colors.text.secondary};
+  border: 1px solid ${({ $active }: { $active?: boolean }) =>
+    $active ? theme.colors.accent : theme.colors.border};
   border-radius: ${theme.layout.borderRadius.sm};
   font-size: ${theme.typography.fontSize.sm};
   font-weight: ${theme.typography.fontWeight.regular};
@@ -84,9 +87,11 @@ const ChartButton = styled.button<{ $active?: boolean }>`
   transition: all ${theme.animation.transition.fast};
 
   &:hover {
-    background: ${({ $active }) => $active ? theme.colors.accent : theme.colors.hover};
+    background: ${({ $active }: { $active?: boolean }) =>
+      $active ? theme.colors.accent : theme.colors.hover};
     border-color: ${theme.colors.accent};
-    color: ${({ $active }) => $active ? theme.colors.bg.primary : theme.colors.accent};
+    color: ${({ $active }: { $active?: boolean }) =>
+      $active ? theme.colors.bg.primary : theme.colors.accent};
   }
 `;
 
@@ -147,19 +152,50 @@ interface LineChartProps {
   onDataPointClick?: (point: ChartDataPoint, index: number) => void;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
+/**
+ * Strongly-typed tooltip content for Recharts.
+ */
+type TooltipPayloadItem = {
+  value: number | string;
+  name?: string;
+  color?: string;
+  payload?: {
+    name: string;
+    value: number;
+    x?: number | string | Date;
+    timestamp?: string | number | Date;
+  };
+};
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (active && payload && payload.length > 0) {
+    const first = payload[0];
+    const numeric =
+      typeof first.value === 'number'
+        ? first.value
+        : Number.isFinite(Number(first.value))
+          ? Number(first.value)
+          : null;
+
     return (
       <StyledTooltip>
-        <TooltipLabel>{`Time: ${label}`}</TooltipLabel>
-        <TooltipValue>{`Value: ${payload[0].value.toFixed(2)}`}</TooltipValue>
+        <TooltipLabel>{`Time: ${String(label ?? '')}`}</TooltipLabel>
+        <TooltipValue>
+          {numeric !== null ? `Value: ${numeric.toFixed(2)}` : `Value: ${String(first.value)}`}
+        </TooltipValue>
       </StyledTooltip>
     );
   }
   return null;
 };
 
-const LineChart: React.FC<LineChartProps> = ({
+function LineChart({
   data,
   title = 'Data Visualization',
   type = 'line',
@@ -167,28 +203,40 @@ const LineChart: React.FC<LineChartProps> = ({
   loading = false,
   className,
   onDataPointClick,
-}) => {
+}: LineChartProps): JSX.Element {
   const [chartType, setChartType] = useState<'line' | 'area'>(type);
   const [animationComplete, setAnimationComplete] = useState(!animate);
 
   // Transform data for Recharts
-  const chartData = data.map((point, index) => ({
+  const chartData = data.map((point: ChartDataPoint, index: number) => ({
     name: point.label || `Point ${index + 1}`,
     value: point.y,
     x: point.x,
     timestamp: point.timestamp,
   }));
 
-  const handleDataPointClick = (data: any, index: number) => {
-    if (onDataPointClick) {
-      const originalPoint = {
-        x: data.x,
-        y: data.value,
-        label: data.name,
-        timestamp: data.timestamp,
-      };
-      onDataPointClick(originalPoint, index);
-    }
+  type ChartDatum = {
+    name: string;
+    value: number;
+    x?: number | string | Date;
+    timestamp?: string | number | Date;
+  };
+  
+  /**
+   * Recharts passes the datum as the first argument.
+   * Narrow the shape to our chartData to keep TS happy.
+   */
+  const handleDataPointClick = (data: ChartDatum, index: number) => {
+    if (!onDataPointClick) return;
+  
+    const originalPoint = {
+      x: data?.x,
+      y: data?.value,
+      label: data?.name,
+      timestamp: data?.timestamp,
+    } as ChartDataPoint;
+  
+    onDataPointClick(originalPoint, index);
   };
 
   const chartVariants = {
@@ -297,6 +345,7 @@ const LineChart: React.FC<LineChartProps> = ({
                 }}
                 animationDuration={animate ? 1500 : 0}
                 animationBegin={0}
+                // Recharts animation visibility controlled after container animation completes
                 isAnimationActive={animationComplete}
                 onClick={handleDataPointClick}
               />
@@ -319,6 +368,7 @@ const LineChart: React.FC<LineChartProps> = ({
                 }}
                 animationDuration={animate ? 1500 : 0}
                 animationBegin={0}
+                // Recharts animation visibility controlled after container animation completes
                 isAnimationActive={animationComplete}
                 onClick={handleDataPointClick}
               />
