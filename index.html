@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SYNTHORA - Data Intelligence Portfolio</title>
+    <meta name="description" content="Advanced analytics and visualization solutions built with precision and elegance. Data intelligence portfolio featuring React, TypeScript, and modern UI components." />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#101214" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://synthora.dev/" />
+    <meta property="og:title" content="SYNTHORA - Data Intelligence Portfolio" />
+    <meta property="og:description" content="Advanced analytics and visualization solutions built with precision and elegance." />
+    <meta property="og:image" content="/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://synthora.dev/" />
+    <meta property="twitter:title" content="SYNTHORA - Data Intelligence Portfolio" />
+    <meta property="twitter:description" content="Advanced analytics and visualization solutions built with precision and elegance." />
+    <meta property="twitter:image" content="/twitter-image.png" />
+    
+    <!-- Additional meta tags -->
+    <meta name="keywords" content="data visualization, analytics, React, TypeScript, charts, text analysis, data intelligence" />
+    <meta name="author" content="SYNTHORA" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Prevent flash of unstyled content -->
+    <style>
+      body {
+        margin: 0;
+        background-color: #101214;
+        color: #ffffff;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      
+      /* Loading screen styles */
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #101214;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #2a2d30;
+        border-top: 3px solid #68FFC9;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading screen -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <!-- React root -->
+    <div id="root"></div>
+    
+    <!-- Loading script -->
+    <script>
+      // Hide loading screen when React app loads
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+            setTimeout(() => {
+              loadingScreen.remove();
+            }, 300);
+          }
+        }, 500);
+      });
+      
+      // Fallback: Remove loading screen after 5 seconds
+      setTimeout(function() {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          loadingScreen.remove();
+        }
+      }, 5000);
+    </script>
+    
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,107 @@
+# PostgreSQL Database Docker Compose Configuration
+# This extends the main docker-compose configuration with database services
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database for extraction history
+  postgres:
+    image: postgres:15-alpine
+    container_name: firecrawl-postgres
+    platform: linux/arm64
+    environment:
+      POSTGRES_DB: firecrawl_db
+      POSTGRES_USER: firecrawl_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-firecrawl_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/backups:/backups
+    networks:
+      - sitemap-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firecrawl_user -d firecrawl_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=128MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  # PgAdmin for database management (development only)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: firecrawl-pgadmin
+    platform: linux/arm64
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@firecrawl.com
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - sitemap-dev-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - admin
+
+  # Redis Cache (if not already defined in main compose)
+  redis-cache:
+    image: redis:7-alpine
+    container_name: firecrawl-redis-cache
+    platform: linux/arm64
+    ports:
+      - "${REDIS_CACHE_PORT:-6380}:6379"
+    volumes:
+      - redis_cache_data:/data
+    networks:
+      - sitemap-dev-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    profiles:
+      - cache
+
+# Networks
+networks:
+  sitemap-dev-network:
+    external: true
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./database/data
+  
+  pgadmin_data:
+    driver: local
+    driver_opts:
+      type: none  
+      o: bind
+      device: ./database/pgadmin
+      
+  redis_cache_data:
+    driver: local

@@ -1,0 +1,65 @@
+# Development Dockerfile for Firecrawl Service
+# Optimized for ARM64 with hot reloading and debugging
+
+FROM --platform=linux/arm64 node:20-alpine AS development
+
+WORKDIR /app
+
+# Install system dependencies for Playwright and development
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto-emoji \
+    wqy-zenhei \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    git \
+    curl \
+    bash
+
+# Configure Playwright to use system browsers
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/lib/chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci --platform=linux --arch=arm64
+
+# Install Playwright browsers (as root before switching user)
+RUN npx playwright install chromium --with-deps || echo "Playwright install completed"
+
+# Copy source code (will be overridden by volume mounts in development)
+COPY src/ ./src/
+COPY tests/ ./tests/
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S firecrawl -u 1001 -G nodejs && \
+    mkdir -p /app/logs /app/temp && \
+    chown -R firecrawl:nodejs /app
+
+USER firecrawl
+
+# Expose ports
+EXPOSE 3001 9229
+
+# Set development environment variables
+ENV NODE_ENV=development
+ENV PORT=3001
+ENV JWT_SECRET=dev-jwt-secret-not-for-production
+ENV DEBUG=firecrawl:*
+
+# Start development server with nodemon and debugging
+CMD ["npm", "run", "dev"]

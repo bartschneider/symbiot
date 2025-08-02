@@ -1,0 +1,137 @@
+# Docker Compose for Sitemap Scraper Application
+# Optimized for ARM64 architecture with port forwarding
+
+version: '3.8'
+
+services:
+  # Firecrawl Backend Service
+  firecrawl-backend:
+    image: firecrawl-service:latest
+    platform: linux/arm64
+    container_name: firecrawl-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-secure-jwt-secret-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - CORS_ORIGIN=http://localhost:$FRONTEND_PORT
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - CACHE_TTL_SECONDS=3600
+      - PLAYWRIGHT_TIMEOUT=30000
+      - PLAYWRIGHT_MAX_CONCURRENT=3
+      - CONTENT_MAX_SIZE_MB=10
+      - CONTENT_MAX_TIMEOUT_MS=60000
+      # Playwright ARM64 configuration
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true
+      - PLAYWRIGHT_BROWSERS_PATH=/usr/bin
+      - PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    ports:
+      - "$BACKEND_PORT:3001"
+    volumes:
+      - firecrawl_logs:/app/logs
+      - firecrawl_temp:/app/temp
+    networks:
+      - sitemap-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Synthora Analytics Frontend
+  synthora-frontend:
+    image: synthora-frontend:latest
+    platform: linux/arm64
+    container_name: synthora-frontend
+    environment:
+      - NODE_ENV=production
+      - VITE_API_BASE_URL=http://firecrawl-backend:3001
+      - VITE_APP_NAME=Synthora Analytics
+    ports:
+      - "$FRONTEND_PORT:80"
+    depends_on:
+      firecrawl-backend:
+        condition: service_healthy
+    networks:
+      - sitemap-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.125'
+
+  # Redis for caching (optional enhancement)
+  redis:
+    image: redis:7-alpine
+    container_name: sitemap-redis
+    platform: linux/arm64
+    ports:
+      - "$REDIS_PORT:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sitemap-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+
+
+# Networks
+networks:
+  sitemap-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes
+volumes:
+  firecrawl_logs:
+    driver: local
+  firecrawl_temp:
+    driver: local
+  redis_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# Extension fields for reusability
+x-common-variables: &common-variables
+  TZ: UTC
+  LOG_LEVEL: info
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
