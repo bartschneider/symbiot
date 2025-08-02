@@ -5,12 +5,55 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+!.env.template
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# API Keys and secrets
+secrets/
+.secrets
+*.key
+*.pem
+*.p12
+*.pfx
+.password
+.secret
+config/secrets.json
+config/local.json
+
+# Authentication
+auth.json
+service-account.json
+firebase-admin.json
+google-credentials.json
+aws-credentials
+.aws/credentials
+
+# Database credentials
+database.json
+db.json
+.pgpass
+.my.cnf
+
+# SSL certificates
+*.crt
+*.cert
+*.cer
+*.der
+
+# SSH keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+known_hosts
+authorized_keys
 
 # Build outputs
 dist/
@@ -78,6 +121,63 @@ sitemap-results.json
 test-service.js
 test-sitemap.js
 stocks-series.md
+
+# Security and audit files
+security-audit.json
+vulnerability-report.json
+.snyk
+npm-audit.json
+yarn-audit.json
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+*~
+*.swp
+*.swo
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor and IDE files with potential secrets
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dataSources.xml
+.idea/dataSources.ids
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+.idea/gradle.xml
+.idea/libraries/
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/modules.xml
+.idea/*.iws
+.idea/misc.xml
+.idea/vcs.xml
+
+# Docker secrets
+docker-compose.override.yml
+docker-compose.prod.yml
+docker-compose.secrets.yml
+.dockerignore.local
+
+# Kubernetes secrets
+secrets.yaml
+secret.yaml
+kustomization.yaml
+*.secret.yaml
 
 # Go
 backend/bin/
