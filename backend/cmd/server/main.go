@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/bartosz/stocks-out-for-harambe/backend/internal/api"
 	"github.com/bartosz/stocks-out-for-harambe/backend/internal/config"
@@ -46,7 +45,7 @@ func main() {
 
 	log.Printf("Starting server on port %s", port)
 	log.Printf("API documentation available at http://localhost:%s/api/v1/health", port)
-	
+
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
-	"regexp"
-	"math"
 
 	"github.com/bartosz/stocks-out-for-harambe/backend/internal/models"
 	"github.com/bartosz/stocks-out-for-harambe/backend/internal/storage"
@@ -204,13 +204,13 @@ func (h *TextHandler) GetPopularEntities(c *gin.Context) {
 func (h *TextHandler) GetSampleTexts(c *gin.Context) {
 	samples := map[string]string{
 		"positive": "This amazing product has completely transformed our workflow! The user interface is incredibly intuitive and beautiful. Our team loves how efficient and powerful the features are. Customer support is outstanding and always helpful. We've seen fantastic results and would definitely recommend this to everyone. It's a perfect solution that exceeds all expectations.",
-		
+
 		"negative": "This terrible software is a complete waste of time and money. The interface is confusing and difficult to navigate. Nothing works as advertised and the performance is awful. Customer support is useless and unhelpful. We're frustrated and disappointed with this poor quality product. It's broken, slow, and causes more problems than it solves.",
-		
+
 		"neutral": "The software provides basic functionality for data management. Users can create, edit, and delete records through the interface. The system includes standard features such as search, filter, and export capabilities. Documentation is available in the help section. Regular updates are released quarterly to address issues and add features.",
-		
+
 		"technical": "The React application utilizes TypeScript for type safety and Framer Motion for animations. The architecture implements a component-based design with custom hooks for state management. Data visualization is handled through Recharts library with responsive design patterns. The build process leverages Vite for optimal performance and development experience. Code splitting and lazy loading ensure efficient bundle sizes.",
-		
+
 		"business": "Our quarterly revenue increased by 15% compared to last year, demonstrating strong market performance. The company expanded operations to three new regions, establishing strategic partnerships with key industry leaders. Customer satisfaction scores improved significantly, with retention rates reaching 92%. Investment in research and development continues to drive innovation and competitive advantage in the marketplace.",
 	}
 
@@ -287,7 +287,7 @@ func (h *TextHandler) analyzeSentiment(text string) models.SentimentAnalysis {
 	}
 
 	words := regexp.MustCompile(`\b\w+\b`).FindAllString(strings.ToLower(text), -1)
-	
+
 	positiveCount := 0
 	negativeCount := 0
 
@@ -307,7 +307,7 @@ func (h *TextHandler) analyzeSentiment(text string) models.SentimentAnalysis {
 	}
 
 	totalSentimentWords := positiveCount + negativeCount
-	
+
 	if totalSentimentWords == 0 {
 		return models.SentimentAnalysis{
 			Score:      0,
@@ -481,7 +481,7 @@ func (h *TextHandler) countSyllables(word string) int {
 	count := 0
 	previousWasVowel := false
 
-	for i, char := range word {
+	for _, char := range word {
 		isVowel := strings.ContainsRune(vowels, char)
 		if isVowel && !previousWasVowel {
 			count++

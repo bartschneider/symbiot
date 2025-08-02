@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/bartosz/stocks-out-for-harambe/backend/internal/config"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	migrate "github.com/golang-migrate/migrate/v4"
+	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"gorm.io/driver/postgres"
+	gormpg "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -46,7 +46,7 @@ func NewDatabase(cfg config.DatabaseConfig) (*Database, error) {
 		),
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), gormCfg)
+	db, err := gorm.Open(gormpg.Open(dsn), gormCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -99,7 +99,7 @@ func RunMigrations(cfg config.DatabaseConfig) error {
 	defer db.Close()
 
 	// Create migration driver
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	driver, err := migratepg.WithInstance(db, &migratepg.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}

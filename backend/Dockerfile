@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Go backend
+# Multi-stage Dockerfile for Go backend (handles missing go.sum and subpath module files)
 
 # Stage 1: Build stage
 FROM golang:1.21-alpine AS builder
@@ -6,16 +6,25 @@ FROM golang:1.21-alpine AS builder
 # Install git and ca-certificates (required for fetching dependencies)
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Set working directory
+# Set working directory inside container
 WORKDIR /app
 
-# Copy go.mod and go.sum first for better caching
-COPY go.mod go.sum ./
+# Copy module files from backend subpath first to leverage Docker build cache
+COPY go.mod ./go.mod
+# If go.sum doesn't exist in repo, create an empty one to satisfy COPY and allow tidy to generate it
+# Use --chown not needed on Alpine; simply touch later
+# Attempt to copy; if not present, create empty
+# We do this in two steps to keep caching effective
+# Copy will fail if file doesn't exist, so we use a conditional touch before the next commands
+# Instead, we copy only go.mod here, and create go.sum via tidy below
 
-# Download dependencies
-RUN go mod download
+# Download dependencies (this will also create go.sum via 'go mod tidy' if missing)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    test -f go.sum || true && \
+    go mod tidy && \
+    go mod download
 
-# Copy source code
+# Copy the rest of the backend source
 COPY . .
 
 # Build the application
