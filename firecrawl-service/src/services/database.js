@@ -10,11 +10,12 @@ let pool = null;
 
 // Database configuration
 const dbConfig = {
-  host: config.database?.host || process.env.DB_HOST || 'localhost',
-  port: config.database?.port || process.env.DB_PORT || 5433,
-  database: config.database?.name || process.env.DB_NAME || 'windchaser_db',
-  user: config.database?.user || process.env.DB_USER || 'windchaser_user',
-  password: config.database?.password || process.env.DB_PASSWORD || 'windchaser_password',
+  // In docker-compose.dev.yml the Postgres service is named 'postgres-dev'
+  host: config.database?.host || process.env.DB_HOST || 'postgres-dev',
+  port: Number(config.database?.port || process.env.DB_PORT || 5432),
+  database: config.database?.name || process.env.DB_NAME || 'synthora_dev',
+  user: config.database?.user || process.env.DB_USER || 'postgres',
+  password: config.database?.password || process.env.DB_PASSWORD || 'password',
   
   // Connection pool settings
   min: config.database?.pool?.min || process.env.DATABASE_POOL_MIN || 2,

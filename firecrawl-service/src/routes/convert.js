@@ -1,26 +1,20 @@
 import express from 'express';
 import convertController from '../controllers/convert.js';
-import { 
-  authenticate, 
-  requireAdmin, 
-  userBasedRateLimit 
-} from '../middleware/auth.js';
-import { 
-  apiRateLimit 
+import {
+  apiRateLimit
 } from '../middleware/security.js';
-import { 
-  validateUrl, 
+import {
+  validateUrl,
   validateUrlsBatch,
-  validateConversionOptions 
+  validateConversionOptions
 } from '../middleware/validation.js';
 
 const router = express.Router();
 
 /**
  * Apply common middleware
+ * Auth temporarily disabled; keep generic rate limiting
  */
-router.use(authenticate);
-router.use(userBasedRateLimit);
 router.use(apiRateLimit);
 
 /**
@@ -69,12 +63,12 @@ router.get('/health',
 );
 
 /**
- * Admin Routes (requires admin role)
+ * Admin Routes
+ * Temporarily public while auth is disabled
  */
 
 // Clear service caches
 router.post('/cache/clear',
-  requireAdmin,
   convertController.clearCaches
 );
 

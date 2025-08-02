@@ -1,6 +1,6 @@
 import { fetcherService } from './fetcher.js';
 import { cacheService } from './cache.js';
-import { extractionHistoryService } from './extractionHistory.js';
+import extractionHistoryService from './extractionHistory.js';
 import { config } from '../config/config.js';
 import * as cheerio from 'cheerio';
 

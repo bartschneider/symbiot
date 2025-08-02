@@ -2,7 +2,7 @@
 # Optimized for ARM64 architecture
 
 # Stage 1: Dependencies installation
-FROM --platform=linux/arm64 node:20-alpine AS deps
+FROM node:20-alpine AS deps
 WORKDIR /app
 
 # Install system dependencies
@@ -18,11 +18,11 @@ COPY tsconfig*.json ./
 COPY vite.config.ts ./
 
 # Install dependencies with ARM64 optimizations
-RUN npm ci --only=production --platform=linux --arch=arm64 && \
+RUN npm ci --only=production && \
     npm cache clean --force
 
 # Stage 2: Development dependencies and build
-FROM --platform=linux/arm64 node:20-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install system dependencies
@@ -40,7 +40,7 @@ COPY package*.json ./
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 
-RUN npm ci --platform=linux --arch=arm64
+RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
@@ -56,7 +56,7 @@ ENV VITE_APP_NAME="Synthora Analytics"
 RUN npm run build
 
 # Stage 3: Production runtime
-FROM --platform=linux/arm64 nginx:alpine AS production
+FROM nginx:alpine AS production
 
 # Install Node.js for potential server-side features
 RUN apk add --no-cache nodejs npm curl

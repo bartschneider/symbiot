@@ -14,6 +14,17 @@ import {
 } from '../services/extractionHistory.js';
 import { healthCheck } from '../services/database.js';
 
+const isDev = () => (process.env.NODE_ENV !== 'production');
+const log = (event, ctx = {}) => {
+  if (!isDev()) return;
+  try {
+    const safe = JSON.stringify(ctx, (_, v) => (typeof v === 'string' && v.length > 200 ? v.slice(0, 200) + '…' : v));
+    console.log(`[EXTRACT-CTRL] ${event} ${safe}`);
+  } catch {
+    console.log(`[EXTRACT-CTRL] ${event}`, ctx);
+  }
+};
+
 /**
  * Extraction History API Controllers
  * Handles HTTP requests for extraction history and retry functionality
@@ -24,10 +35,14 @@ import { healthCheck } from '../services/database.js';
  */
 export const getSessions = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    // Auth disabled: allow anonymous access, default to a shared context
+    const userId = req.user?.id || req.user?.userId || null;
+    log('getSessions:start', {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      userId,
+      hasUser: !!req.user
+    });
 
     const {
       page = 1,
@@ -47,13 +62,18 @@ export const getSessions = async (req, res) => {
       orderDirection
     });
 
+    log('getSessions:success', {
+      count: result.sessions?.length,
+      pagination: result.pagination
+    });
+
     res.json({
       success: true,
       data: result.sessions,
       pagination: result.pagination
     });
   } catch (error) {
-    console.error('Error fetching sessions:', error);
+    log('getSessions:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch extraction sessions',
@@ -67,25 +87,27 @@ export const getSessions = async (req, res) => {
  */
 export const getSessionDetail = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    const userId = req.user?.id || req.user?.userId || null;
     const { sessionId } = req.params;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    log('getSessionDetail:start', { userId, sessionId });
 
     if (!sessionId) {
+      log('getSessionDetail:missing-sessionId');
       return res.status(400).json({ error: 'Session ID is required' });
     }
 
     const result = await getSessionDetails(sessionId, userId);
+    log('getSessionDetail:success', {
+      extractions: result?.extractions?.length,
+      hasSession: !!result?.session
+    });
 
     res.json({
       success: true,
       data: result
     });
   } catch (error) {
-    console.error('Error fetching session details:', error);
+    log('getSessionDetail:error', { message: error.message });
     
     if (error.message.includes('not found') || error.message.includes('access denied')) {
       return res.status(404).json({
@@ -107,10 +129,8 @@ export const getSessionDetail = async (req, res) => {
  */
 export const getRetryableExtractions = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userId = req.user?.id || req.user?.userId || null;
+    log('getRetryableExtractions:start', { userId });
 
     const {
       sessionId,
@@ -126,12 +146,14 @@ export const getRetryableExtractions = async (req, res) => {
       minRetryInterval: parseInt(minRetryInterval)
     });
 
+    log('getRetryableExtractions:success', { count: retryableUrls?.length });
+
     res.json({
       success: true,
       data: retryableUrls
     });
   } catch (error) {
-    console.error('Error fetching retryable URLs:', error);
+    log('getRetryableExtractions:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch retryable URLs',
@@ -145,10 +167,7 @@ export const getRetryableExtractions = async (req, res) => {
  */
 export const createRetrySessionFromIds = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userId = req.user?.id || req.user?.userId || null;
 
     const { extractionIds, sessionName, retryStrategy = 'manual' } = req.body;
 
@@ -188,10 +207,7 @@ export const createRetrySessionFromIds = async (req, res) => {
  */
 export const getExtractionAnalytics = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userId = req.user?.id || req.user?.userId || null;
 
     const {
       dateFrom,
@@ -228,14 +244,13 @@ export const getExtractionAnalytics = async (req, res) => {
  */
 export const createSession = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userId = req.user?.id || req.user?.userId || null;
+    log('createSession:start', { userId });
 
     const { sourceUrl, sessionName, totalUrls, chunkSize = 25, maxRetries = 3 } = req.body;
 
     if (!sourceUrl) {
+      log('createSession:missing-sourceUrl');
       return res.status(400).json({ error: 'Source URL is required' });
     }
 
@@ -246,12 +261,14 @@ export const createSession = async (req, res) => {
       maxRetries
     });
 
+    log('createSession:success', { sessionId: session?.id });
+
     res.status(201).json({
       success: true,
       data: session
     });
   } catch (error) {
-    console.error('Error creating session:', error);
+    log('createSession:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to create extraction session',
@@ -265,12 +282,9 @@ export const createSession = async (req, res) => {
  */
 export const updateSession = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    const userId = req.user?.id || req.user?.userId || null;
     const { sessionId } = req.params;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    log('updateSession:start', { userId, sessionId });
 
     const { status, processingTimeMs, errorMessage } = req.body;
 
@@ -281,18 +295,21 @@ export const updateSession = async (req, res) => {
     });
 
     if (!session) {
+      log('updateSession:not-found', { sessionId });
       return res.status(404).json({
         success: false,
         error: 'Session not found or access denied'
       });
     }
 
+    log('updateSession:success', { sessionId });
+
     res.json({
       success: true,
       data: session
     });
   } catch (error) {
-    console.error('Error updating session:', error);
+    log('updateSession:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to update extraction session',
@@ -306,27 +323,26 @@ export const updateSession = async (req, res) => {
  */
 export const createExtractions = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    const userId = req.user?.id || req.user?.userId || null;
     const { sessionId } = req.params;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    log('createExtractions:start', { userId, sessionId });
 
     const { urls, chunkNumber = 1 } = req.body;
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      log('createExtractions:invalid-urls');
       return res.status(400).json({ error: 'URLs array is required' });
     }
 
     const extractions = await createUrlExtractions(sessionId, urls, chunkNumber);
+    log('createExtractions:success', { created: extractions?.length });
 
     res.status(201).json({
       success: true,
       data: extractions
     });
   } catch (error) {
-    console.error('Error creating extractions:', error);
+    log('createExtractions:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to create URL extractions',
@@ -341,8 +357,10 @@ export const createExtractions = async (req, res) => {
 export const updateExtraction = async (req, res) => {
   try {
     const { extractionId } = req.params;
+    log('updateExtraction:start', { extractionId });
 
     if (!extractionId) {
+      log('updateExtraction:missing-id');
       return res.status(400).json({ error: 'Extraction ID is required' });
     }
 
@@ -373,18 +391,21 @@ export const updateExtraction = async (req, res) => {
     });
 
     if (!extraction) {
+      log('updateExtraction:not-found', { extractionId });
       return res.status(404).json({
         success: false,
         error: 'Extraction not found'
       });
     }
 
+    log('updateExtraction:success', { extractionId, status: extraction?.status });
+
     res.json({
       success: true,
       data: extraction
     });
   } catch (error) {
-    console.error('Error updating extraction:', error);
+    log('updateExtraction:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to update URL extraction',
@@ -398,10 +419,8 @@ export const updateExtraction = async (req, res) => {
  */
 export const getPatternStatistics = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userId = req.user?.id || req.user?.userId || null;
+    log('getPatternStatistics:start', { userId });
 
     const { limit = 10 } = req.query;
 
@@ -409,12 +428,14 @@ export const getPatternStatistics = async (req, res) => {
       limit: Math.min(parseInt(limit), 50) // Cap at 50
     });
 
+    log('getPatternStatistics:success', { count: stats?.length });
+
     res.json({
       success: true,
       data: stats
     });
   } catch (error) {
-    console.error('Error fetching pattern statistics:', error);
+    log('getPatternStatistics:error', { message: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch URL pattern statistics',
@@ -428,21 +449,21 @@ export const getPatternStatistics = async (req, res) => {
  */
 export const removeSession = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    const userId = req.user?.id || req.user?.userId || null;
     const { sessionId } = req.params;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    log('removeSession:start', { userId, sessionId });
 
     const deletedSession = await deleteSession(sessionId, userId);
 
     if (!deletedSession) {
+      log('removeSession:not-found', { sessionId });
       return res.status(404).json({
         success: false,
         error: 'Session not found or access denied'
       });
     }
+
+    log('removeSession:success', { sessionId });
 
     res.json({
       success: true,
@@ -450,7 +471,7 @@ export const removeSession = async (req, res) => {
       data: deletedSession
     });
   } catch (error) {
-    console.error('Error deleting session:', error);
+    log('removeSession:error', { message: error.message });
     
     if (error.message.includes('not found') || error.message.includes('access denied')) {
       return res.status(404).json({
@@ -473,13 +494,14 @@ export const removeSession = async (req, res) => {
 export const getDatabaseHealth = async (req, res) => {
   try {
     const health = await healthCheck();
-    
+    log('getDatabaseHealth:success', { healthy: !!health?.healthy });
+
     res.json({
       success: true,
       data: health
     });
   } catch (error) {
-    console.error('Database health check failed:', error);
+    log('getDatabaseHealth:error', { message: error.message });
     res.status(503).json({
       success: false,
       error: 'Database health check failed',

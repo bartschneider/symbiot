@@ -1,7 +1,7 @@
 # Development Dockerfile for Main React Application
 # Optimized for ARM64 with hot reloading
 
-FROM --platform=linux/arm64 node:20-alpine AS development
+FROM node:20-alpine AS development
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY tsconfig*.json ./
 COPY vite.config.ts ./
 
 # Install dependencies
-RUN npm ci --platform=linux --arch=arm64
+RUN npm ci
 
 # Copy source code (will be overridden by volume mounts in development)
 COPY src/ ./src/

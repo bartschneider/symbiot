@@ -7,7 +7,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    platform: linux/arm64
+      x-bake:
+        # Ensure BuildKit cache mounts are effective between builds
+        # Requires DOCKER_BUILDKIT=1 and COMPOSE_DOCKER_CLI_BUILD=1 in environment
+        pull: false
+    platform: linux/amd64
     container_name: windchaser-backend-dev
     environment:
       - NODE_ENV=development
@@ -21,7 +25,7 @@ services:
       - DB_SSL_MODE=${DB_SSL_MODE:-disable}
       - REDIS_URL=redis-dev:6379
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-8081}:8080"
     networks:
       - sitemap-dev-network
     depends_on:
@@ -40,8 +44,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    platform: linux/arm64
+      x-bake:
+        pull: false
+    platform: linux/amd64
     container_name: synthora-frontend-dev
+    user: "0:0"
     environment:
       - NODE_ENV=development
       - VITE_API_BASE_URL=http://backend-dev:8080
@@ -53,12 +60,7 @@ services:
       - "${FRONTEND_PORT:-5173}:5173"
       - "5173:5173"  # Vite HMR port
     volumes:
-      - ./src:/app/src:ro
-      - ./public:/app/public:ro
-      - ./package.json:/app/package.json:ro
-      - ./vite.config.ts:/app/vite.config.ts:ro
-      - ./tsconfig.json:/app/tsconfig.json:ro
-      - ./index.html:/app/index.html:ro
+      - .:/app
     depends_on:
       - backend-dev
       - firecrawl-service-dev
@@ -71,7 +73,7 @@ services:
   redis-dev:
     image: redis:7-alpine
     container_name: sitemap-redis-dev
-    platform: linux/arm64
+    platform: linux/amd64
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -86,7 +88,9 @@ services:
     build:
       context: ./firecrawl-service
       dockerfile: Dockerfile
-    platform: linux/arm64
+      x-bake:
+        pull: false
+    platform: linux/amd64
     container_name: firecrawl-service-dev
     environment:
       - NODE_ENV=development
@@ -107,7 +111,7 @@ services:
   dev-tools:
     image: node:20-alpine
     container_name: sitemap-dev-tools
-    platform: linux/arm64
+    platform: linux/amd64
     working_dir: /workspace
     volumes:
       - .:/workspace
@@ -122,7 +126,7 @@ services:
   postgres-dev:
     image: postgres:15-alpine
     container_name: synthora-postgres-dev
-    platform: linux/arm64
+    platform: linux/amd64
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}

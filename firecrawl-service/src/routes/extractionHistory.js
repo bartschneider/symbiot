@@ -13,7 +13,6 @@ import {
   getPatternStatistics,
   getDatabaseHealth
 } from '../controllers/extractionHistory.js';
-import { authenticateToken } from '../middleware/auth.js';
 import { body, param, query, validationResult } from 'express-validator';
 
 const router = express.Router();
@@ -37,15 +36,23 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 /**
+ * NOTE: Authentication temporarily disabled across all routes.
+ * These endpoints are now public. Keep validation intact.
+ */
+
+/**
  * GET /api/extraction-history/sessions
- * Get user's extraction sessions with pagination and filtering
+ * Get extraction sessions with pagination and filtering
+ * Notes:
+ * - Supports page (maps to offset internally), limit, status, sourceUrl filters
  */
 router.get('/sessions',
-  authenticateToken,
   [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
     query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be non-negative'),
     query('status').optional().isIn(['in_progress', 'completed', 'failed', 'cancelled']).withMessage('Invalid status'),
+    query('sourceUrl').optional().isString().isLength({ min: 1, max: 2000 }).withMessage('sourceUrl must be a string'),
     query('sortBy').optional().isIn(['created_at', 'session_name', 'total_urls', 'success_rate_percent']).withMessage('Invalid sortBy field'),
     query('sortOrder').optional().isIn(['ASC', 'DESC']).withMessage('Sort order must be ASC or DESC')
   ],
@@ -58,7 +65,6 @@ router.get('/sessions',
  * Create a new extraction session
  */
 router.post('/sessions',
-  authenticateToken,
   [
     body('sourceUrl').isURL().withMessage('Source URL must be a valid URL'),
     body('sessionName').optional().isString().isLength({ min: 1, max: 500 }).withMessage('Session name must be 1-500 characters'),
@@ -75,7 +81,6 @@ router.post('/sessions',
  * Get detailed session information including URL status breakdown
  */
 router.get('/sessions/:sessionId',
-  authenticateToken,
   [
     param('sessionId').isUUID().withMessage('Session ID must be a valid UUID')
   ],
@@ -88,7 +93,6 @@ router.get('/sessions/:sessionId',
  * Update extraction session status
  */
 router.put('/sessions/:sessionId',
-  authenticateToken,
   [
     param('sessionId').isUUID().withMessage('Session ID must be a valid UUID'),
     body('status').optional().isIn(['pending', 'processing', 'completed', 'failed', 'cancelled']).withMessage('Invalid status'),
@@ -104,7 +108,6 @@ router.put('/sessions/:sessionId',
  * Create URL extractions for a session
  */
 router.post('/sessions/:sessionId/extractions',
-  authenticateToken,
   [
     param('sessionId').isUUID().withMessage('Session ID must be a valid UUID'),
     body('urls').isArray({ min: 1 }).withMessage('URLs must be a non-empty array'),
@@ -120,7 +123,6 @@ router.post('/sessions/:sessionId/extractions',
  * Update URL extraction status and results
  */
 router.put('/extractions/:extractionId',
-  authenticateToken,
   [
     param('extractionId').isUUID().withMessage('Extraction ID must be a valid UUID'),
     body('status').optional().isIn(['pending', 'processing', 'success', 'failed']).withMessage('Invalid status'),
@@ -142,7 +144,6 @@ router.put('/extractions/:extractionId',
  * Delete an extraction session and all related data
  */
 router.delete('/sessions/:sessionId',
-  authenticateToken,
   [
     param('sessionId').isUUID().withMessage('Session ID must be a valid UUID')
   ],
@@ -155,7 +156,6 @@ router.delete('/sessions/:sessionId',
  * Get failed URLs that can be retried
  */
 router.get('/retryable',
-  authenticateToken,
   [
     query('limit').optional().isInt({ min: 1, max: 200 }).withMessage('Limit must be between 1 and 200'),
     query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be non-negative'),
@@ -173,7 +173,6 @@ router.get('/retryable',
  * Create retry session from failed URLs
  */
 router.post('/retry',
-  authenticateToken,
   [
     body('extractionIds')
       .isArray({ min: 1, max: 100 })
@@ -199,7 +198,6 @@ router.post('/retry',
  * Get extraction analytics and performance metrics
  */
 router.get('/analytics',
-  authenticateToken,
   [
     query('startDate').optional().isISO8601().withMessage('Start date must be valid ISO 8601 date'),
     query('endDate').optional().isISO8601().withMessage('End date must be valid ISO 8601 date'),
@@ -214,7 +212,6 @@ router.get('/analytics',
  * Get URL pattern statistics
  */
 router.get('/patterns',
-  authenticateToken,
   [
     query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
   ],
@@ -227,7 +224,6 @@ router.get('/patterns',
  * Get error analysis and patterns
  */
 router.get('/errors',
-  authenticateToken,
   [
     query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
   ],
@@ -240,5 +236,115 @@ router.get('/errors',
  * Database health check endpoint
  */
 router.get('/health', getDatabaseHealth);
+
+/**
+ * GET /api/extraction-history/check
+ * Check if a URL was previously extracted
+ * Query: url (required)
+ */
+router.get('/check',
+  [
+    query('url').isURL().withMessage('url must be a valid URL')
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    const t0 = Date.now();
+    try {
+      const { url } = req.query;
+
+      // Normalize URL to canonical form to reduce mismatches
+      let normalizedUrl = String(url).trim();
+      try {
+        const u = new URL(normalizedUrl);
+        // Drop fragments and default ports; keep query string
+        u.hash = '';
+        if ((u.protocol === 'http:' && u.port === '80') || (u.protocol === 'https:' && u.port === '443')) {
+          u.port = '';
+        }
+        normalizedUrl = u.toString();
+      } catch {
+        // If URL constructor fails despite validator, fallback to original string
+      }
+
+      // Prefer using LIKE search to handle mixed storage (absolute vs canonicalized URLs)
+      const { query } = await import('../services/database.js');
+
+      const latestQuery = `
+        SELECT
+          ue.id as extraction_id,
+          ue.status,
+          COALESCE(ue.processed_at, ue.updated_at, ue.created_at) AS processed_at,
+          ue.session_id
+        FROM url_extractions ue
+        WHERE ue.url = $1
+        ORDER BY COALESCE(ue.processed_at, ue.updated_at, ue.created_at) DESC
+        LIMIT 1
+      `;
+
+      const fallbackLatestQuery = `
+        SELECT
+          ue.id as extraction_id,
+          ue.status,
+          COALESCE(ue.processed_at, ue.updated_at, ue.created_at) AS processed_at,
+          ue.session_id
+        FROM url_extractions ue
+        WHERE ue.url LIKE $1
+        ORDER BY COALESCE(ue.processed_at, ue.updated_at, ue.created_at) DESC
+        LIMIT 1
+      `;
+
+      const countQuery = `
+        SELECT COUNT(*)::int AS cnt
+        FROM url_extractions
+        WHERE url = $1
+      `;
+
+      const fallbackCountQuery = `
+        SELECT COUNT(*)::int AS cnt
+        FROM url_extractions
+        WHERE url LIKE $1
+      `;
+
+      // Try exact match first
+      let latestRes = await query(latestQuery, [normalizedUrl]);
+      let countRes = await query(countQuery, [normalizedUrl]);
+
+      // If nothing found, fallback to LIKE on canonical host/path without trailing slash variance
+      if ((latestRes.rows?.length ?? 0) === 0 && (countRes.rows?.[0]?.cnt ?? 0) === 0) {
+        // Build a LIKE pattern that tolerates minor variations (trailing slash)
+        let pattern = normalizedUrl;
+        if (!pattern.endsWith('/')) pattern = `${pattern}%`;
+        latestRes = await query(fallbackLatestQuery, [pattern]);
+        countRes = await query(fallbackCountQuery, [pattern]);
+      }
+
+      const latest = latestRes.rows?.[0] || null;
+      const extractionCount = countRes.rows?.[0]?.cnt || 0;
+
+      const payload = {
+        exists: !!latest || extractionCount > 0,
+        lastExtracted: latest?.processed_at ? new Date(latest.processed_at).toISOString() : undefined,
+        extractionCount,
+        lastStatus: latest?.status || undefined,
+        sessionId: latest?.session_id || undefined
+      };
+
+      res.json({
+        success: true,
+        data: payload,
+        meta: { ms: Date.now() - t0 }
+      });
+    } catch (err) {
+      console.error('[HISTORY_CHECK] Failed:', err?.message);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'HISTORY_CHECK_FAILED',
+          message: 'Failed to check extraction history'
+        }
+      });
+    }
+  }
+);
 
 export default router;

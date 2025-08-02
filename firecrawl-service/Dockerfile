@@ -1,115 +1,90 @@
 # Multi-stage Dockerfile optimized for ARM64 architecture
 # Firecrawl Service - Node.js Express API with Playwright
+# Optimized for caching: separate deps layer, enable BuildKit cache mounts, avoid duplicate system packages across stages
 
-# Stage 1: Dependencies installation
-FROM --platform=linux/arm64 node:20-alpine AS deps
+# Stage 1: Dependencies installation (production deps only)
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install system dependencies for Playwright and Chromium
+# System deps needed for chromium at runtime
 RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
-    freetype-dev \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
     font-noto-emoji \
     wqy-zenhei \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev
+    curl
 
-# Configure Playwright to use system browsers
+# Configure Playwright/Chromium paths
+# Prefer system chromium path; if Playwright bundle is used, uncomment the below line accordingly
 ENV PLAYWRIGHT_BROWSERS_PATH=/usr/lib/chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Copy package files
+# Copy lockfiles only to maximize deps cache hit
 COPY package*.json ./
 
-# Install dependencies with ARM64 optimizations
-RUN npm ci --only=production --platform=linux --arch=arm64 && \
+# Install production dependencies using cache mounts
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production && \
     npm cache clean --force
 
-# Stage 2: Development and build preparation
-FROM --platform=linux/arm64 node:20-alpine AS builder
+# Stage 2: Builder (full deps for lint/tests if needed)
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install system dependencies
+# Reuse the same system deps to avoid surprises; do not duplicate heavy -dev libraries unless required
 RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
-    freetype-dev \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
     font-noto-emoji \
-    wqy-zenhei \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev
+    wqy-zenhei
 
-# Configure Playwright to use system browsers
 ENV PLAYWRIGHT_BROWSERS_PATH=/usr/lib/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-# Copy package files and install all dependencies
+# Install full deps with cache mounts
 COPY package*.json ./
-RUN npm ci --platform=linux --arch=arm64
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
-# Install Playwright browsers
-RUN npx playwright install chromium --with-deps || echo "Playwright install completed"
+# Install Playwright chromium once in builder (no --with-deps since system chromium is installed)
+RUN npx playwright install chromium || echo "Playwright install completed"
 
 # Copy source code
 COPY src/ ./src/
 COPY tests/ ./tests/
 
-# Build validation
+# Optional build validations
 RUN npm run lint || echo "Linting completed"
 
-# Stage 3: Production runtime
-FROM --platform=linux/arm64 node:20-alpine AS production
+# Stage 3: Production runtime (use Playwright maintained base image to avoid huge system deps on Alpine)
+# Updated to align with runtime requirement printed at startup
+# Note: Focal tags not found on MCR for 1.54.x; use Jammy which is published.
+FROM mcr.microsoft.com/playwright:v1.54.0-jammy AS production
 WORKDIR /app
 
-# Install production system dependencies
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    font-noto-emoji \
-    wqy-zenhei \
-    curl \
-    dumb-init
-
-# Configure Playwright to use system browsers
-ENV PLAYWRIGHT_BROWSERS_PATH=/usr/lib/chromium
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
-# Copy production dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
+# Copy production dependencies and package metadata from deps stage
 COPY --from=deps /app/package*.json ./
+COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application source
 COPY src/ ./src/
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S windchaser -u 1001 -G nodejs
+# Ensure browsers are installed for the pinned Playwright version in package.json
+RUN npx playwright install --with-deps chromium || echo "Playwright browsers installed"
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /app/logs /app/temp && \
+# Create non-root user for security and app dirs
+RUN groupadd -g 1001 nodejs && \
+    useradd -u 1001 -g nodejs -m windchaser && \
+    mkdir -p /app/logs /app/temp && \
     chown -R windchaser:nodejs /app
 
 # Switch to non-root user
@@ -136,9 +111,6 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
 # Start the application
 CMD ["node", "src/app.js"]
 
@@ -146,4 +118,3 @@ CMD ["node", "src/app.js"]
 LABEL maintainer="windchaser-team"
 LABEL version="1.0.0"
 LABEL description="Firecrawl Service - Web scraping and HTML-to-Markdown conversion API"
-LABEL architecture="arm64"

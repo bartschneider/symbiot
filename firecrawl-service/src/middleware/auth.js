@@ -1,6 +1,23 @@
 import { authService } from '../services/auth.js';
 import { config } from '../config/config.js';
 
+const shouldDebug = () => {
+  try {
+    return typeof config.isDevelopment === 'function' ? config.isDevelopment() : process.env.NODE_ENV !== 'production';
+  } catch {
+    return process.env.NODE_ENV !== 'production';
+  }
+};
+const dbg = (tag, obj = {}) => {
+  if (!shouldDebug()) return;
+  try {
+    const safe = JSON.stringify(obj, (_, v) => (typeof v === 'string' && v.length > 200 ? v.slice(0, 200) + '…' : v));
+    console.log(`[EXTRACT-AUTH] ${tag} ${safe}`);
+  } catch {
+    console.log(`[EXTRACT-AUTH] ${tag}`, obj);
+  }
+};
+
 /**
  * JWT Authentication Middleware
  * Verifies JWT tokens from Authorization header
@@ -9,8 +26,18 @@ export const authenticateToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    dbg('authenticateToken:start', {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      hasAuthHeader: !!authHeader,
+      ua: req.headers['user-agent'],
+      origin: req.headers['origin'] || req.headers['host'],
+      hasToken: !!token
+    });
     
     if (!token) {
+      dbg('authenticateToken:missing-token');
       return res.status(401).json({
         success: false,
         error: {
@@ -22,6 +49,12 @@ export const authenticateToken = (req, res, next) => {
     
     // Verify token
     const decoded = authService.verifyToken(token);
+    dbg('authenticateToken:verified', {
+      userId: decoded?.id || decoded?.userId,
+      role: decoded?.role,
+      iss: decoded?.iss,
+      sub: decoded?.sub ? 'present' : 'absent'
+    });
     
     // Attach user info to request
     req.user = decoded;
@@ -41,6 +74,8 @@ export const authenticateToken = (req, res, next) => {
       errorCode = 'TOKEN_REVOKED';
       message = 'Token has been revoked';
     }
+
+    dbg('authenticateToken:error', { name: error.name, message: error.message, code: errorCode });
     
     res.status(statusCode).json({
       success: false,
@@ -58,11 +93,17 @@ export const authenticateToken = (req, res, next) => {
  */
 export const authenticateApiKey = (req, res, next) => {
   try {
-    const apiKey = req.headers[config.api.keyHeader.toLowerCase()] || 
-                   req.headers['x-api-key'] ||
-                   req.query.api_key;
+    const headerName = config.api?.keyHeader?.toLowerCase?.() || 'x-api-key';
+    const apiKey = req.headers[headerName] || req.headers['x-api-key'] || req.query.api_key;
+    dbg('authenticateApiKey:start', {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      hasKeyHeader: !!req.headers[headerName] || !!req.headers['x-api-key'],
+      hasQueryKey: !!req.query.api_key
+    });
     
     if (!apiKey) {
+      dbg('authenticateApiKey:missing-key');
       return res.status(401).json({
         success: false,
         error: {
@@ -76,6 +117,7 @@ export const authenticateApiKey = (req, res, next) => {
     const user = authService.validateApiKey(apiKey);
     
     if (!user) {
+      dbg('authenticateApiKey:invalid-key');
       return res.status(401).json({
         success: false,
         error: {
@@ -89,10 +131,12 @@ export const authenticateApiKey = (req, res, next) => {
     req.user = user;
     req.apiKey = apiKey;
     req.authMethod = 'api_key';
+    dbg('authenticateApiKey:success', { userId: user?.id || user?.userId, role: user?.role });
     
     next();
     
   } catch (error) {
+    dbg('authenticateApiKey:error', { message: error.message });
     res.status(401).json({
       success: false,
       error: {
@@ -108,10 +152,16 @@ export const authenticateApiKey = (req, res, next) => {
  * Accepts either JWT token or API key
  */
 export const authenticate = (req, res, next) => {
+  const headerName = config.api?.keyHeader?.toLowerCase?.() || 'x-api-key';
   const hasAuthHeader = req.headers.authorization;
-  const hasApiKey = req.headers[config.api.keyHeader.toLowerCase()] || 
-                    req.headers['x-api-key'] || 
-                    req.query.api_key;
+  const hasApiKey = req.headers[headerName] || req.headers['x-api-key'] || req.query.api_key;
+
+  dbg('authenticate:route', {
+    method: req.method,
+    path: req.originalUrl || req.url,
+    hasAuthHeader: !!hasAuthHeader,
+    hasApiKey: !!hasApiKey
+  });
   
   if (hasAuthHeader) {
     // Try JWT authentication
@@ -120,6 +170,7 @@ export const authenticate = (req, res, next) => {
     // Try API key authentication
     authenticateApiKey(req, res, next);
   } else {
+    dbg('authenticate:missing-credentials');
     res.status(401).json({
       success: false,
       error: {
@@ -135,10 +186,16 @@ export const authenticate = (req, res, next) => {
  * Authenticates if credentials are provided, but doesn't require them
  */
 export const optionalAuthenticate = (req, res, next) => {
+  const headerName = config.api?.keyHeader?.toLowerCase?.() || 'x-api-key';
   const hasAuthHeader = req.headers.authorization;
-  const hasApiKey = req.headers[config.api.keyHeader.toLowerCase()] || 
-                    req.headers['x-api-key'] || 
-                    req.query.api_key;
+  const hasApiKey = req.headers[headerName] || req.headers['x-api-key'] || req.query.api_key;
+
+  dbg('optionalAuthenticate:route', {
+    method: req.method,
+    path: req.originalUrl || req.url,
+    hasAuthHeader: !!hasAuthHeader,
+    hasApiKey: !!hasApiKey
+  });
   
   if (hasAuthHeader || hasApiKey) {
     // If credentials provided, validate them
@@ -146,6 +203,7 @@ export const optionalAuthenticate = (req, res, next) => {
   } else {
     // No credentials provided, continue as anonymous
     req.user = null;
+    dbg('optionalAuthenticate:anonymous-continue');
     next();
   }
 };
@@ -295,7 +353,7 @@ export const logoutMiddleware = (req, res, next) => {
  */
 export const addSecurityHeaders = (req, res, next) => {
   // Add user context to response headers (for debugging)
-  if (req.user && config.isDevelopment()) {
+  if (req.user && shouldDebug()) {
     res.set('X-User-Id', req.user.id);
     res.set('X-User-Role', req.user.role);
     res.set('X-Auth-Method', req.authMethod || 'jwt');

@@ -3,12 +3,18 @@ import authRoutes from './auth.js';
 import convertRoutes from './convert.js';
 import sitemapRoutes from './sitemap.js';
 import extractionHistoryRoutes from './extractionHistory.js';
-import { authService } from '../services/auth.js';
-import { windchaserService } from '../services/windchaser.js';
+import { windchaserService } from '../services/firecrawl.js';
 import { cacheService } from '../services/cache.js';
-import { healthCheck } from '../services/database.js';
 
 const router = express.Router();
+
+/**
+ * Temporary root redirect to API info to avoid 404s on "/" when service is probed.
+ * GET /
+ */
+router.get('/', (req, res) => {
+  res.redirect(302, '/api/info');
+});
 
 /**
  * Health Check Route (public)
@@ -26,10 +32,9 @@ router.get('/health', (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
       services: {
-        auth: 'operational',
+        auth: 'disabled',
         conversion: 'operational',
         cache: 'operational',
-        database: 'operational' // Will check via healthCheck if needed
       }
     };
     
@@ -58,12 +63,8 @@ router.get('/info', (req, res) => {
     data: {
       name: 'Firecrawl Service API',
       version: '1.0.0',
-      description: 'Web scraping and HTML-to-Markdown conversion service with JWT authentication',
+      description: 'Web scraping and HTML-to-Markdown conversion service',
       endpoints: {
-        auth: {
-          base: '/api/auth',
-          methods: ['POST /register', 'POST /login', 'POST /logout', 'GET /profile']
-        },
         convert: {
           base: '/api/convert',
           methods: ['POST /', 'POST /text', 'POST /batch', 'POST /validate']
@@ -78,8 +79,7 @@ router.get('/info', (req, res) => {
         }
       },
       authentication: {
-        types: ['JWT Bearer Token', 'API Key'],
-        headers: ['Authorization: Bearer <token>', 'X-API-Key: <key>']
+        status: 'disabled'
       },
       rateLimit: {
         window: '15 minutes',
@@ -91,38 +91,18 @@ router.get('/info', (req, res) => {
 });
 
 /**
- * Service Statistics Route (admin only)
+ * Service Statistics Route (public while auth disabled)
  * GET /api/stats
  */
 router.get('/stats', async (req, res) => {
   try {
-    // Simple auth check for stats endpoint
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        error: { code: 'MISSING_TOKEN', message: 'Access token required' }
-      });
-    }
-    
-    const decoded = authService.verifyToken(token);
-    if (decoded.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'Admin access required' }
-      });
-    }
-    
-    const authStats = authService.getStats();
     const serviceHealth = windchaserService.getHealth();
     const cacheStats = cacheService.getStats();
     
     res.json({
       success: true,
       data: {
-        auth: authStats,
+        auth: { status: 'disabled' },
         service: serviceHealth,
         cache: cacheStats,
         timestamp: new Date().toISOString()
@@ -159,30 +139,9 @@ router.get('/docs', (req, res) => {
       }
     ],
     paths: {
-      '/auth/login': {
-        post: {
-          summary: 'User login',
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    username: { type: 'string' },
-                    password: { type: 'string' }
-                  },
-                  required: ['username', 'password']
-                }
-              }
-            }
-          }
-        }
-      },
       '/convert': {
         post: {
           summary: 'Convert URL to Markdown',
-          security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -207,20 +166,6 @@ router.get('/docs', (req, res) => {
           }
         }
       }
-    },
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
-        },
-        apiKeyAuth: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-API-Key'
-        }
-      }
     }
   };
   
@@ -229,11 +174,29 @@ router.get('/docs', (req, res) => {
 
 /**
  * Route Mounting
+ *
+ * NOTE: The frontend calls /api/extraction-history/check and other history endpoints.
+ * Ensure the base path here matches exactly so requests don't 404.
  */
+// Temporarily leave /auth mounted but note: endpoints may be no-ops or left unused
 router.use('/auth', authRoutes);
 router.use('/convert', convertRoutes);
 router.use('/sitemap', sitemapRoutes);
+
+// Ensure the extraction history router is mounted correctly
 router.use('/extraction-history', extractionHistoryRoutes);
+
+// Lightweight echo/diagnostic for check endpoint path to confirm mount is effective.
+// This will respond if a probe accidentally hits "/check" directly under /api.
+router.get('/check', (req, res) => {
+  res.status(400).json({
+    success: false,
+    error: {
+      code: 'MISSING_PARAM',
+      message: 'Use /api/extraction-history/check?url=...'
+    }
+  });
+});
 
 /**
  * 404 Handler for API routes
@@ -247,7 +210,8 @@ router.use('*', (req, res) => {
       availableEndpoints: [
         'GET /api/health',
         'GET /api/info',
-        'POST /api/auth/login',
+        'GET /api/extraction-history/check?url=...',
+        'GET /api/extraction-history/sessions',
         'POST /api/convert',
         'POST /api/sitemap/discover'
       ]

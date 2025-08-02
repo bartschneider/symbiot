@@ -58,7 +58,7 @@ const StatusIndicator = styled.div<{ $status: string }>`
 `;
 
 const StatusText = styled.span`
-  font-weight: ${theme.typography.fontWeight.semibold};
+  font-weight: ${theme.typography.fontWeight.bold};
   color: ${theme.colors.text.primary};
 `;
 
@@ -87,7 +87,7 @@ const DetailLabel = styled.span`
 
 const DetailValue = styled.span<{ $color?: string }>`
   color: ${({ $color }) => $color || theme.colors.text.primary};
-  font-weight: ${theme.typography.fontWeight.medium};
+  font-weight: ${theme.typography.fontWeight.regular};
   font-size: ${theme.typography.fontSize.sm};
 `;
 
@@ -139,16 +139,39 @@ export function HistoryChecker({
 
   // Auto-check history when URL changes
   useEffect(() => {
-    if (url.trim()) {
-      checkHistory(url.trim())
+    const trimmed = url.trim();
+    if (trimmed) {
+      // Debug trace for lifecycle
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log('[EXTRACT-FE] HistoryChecker:effect', {
+          url: trimmed,
+          checking: historyState.checking,
+          hasHistory: !!historyState.history,
+          hasError: !!historyState.error
+        });
+      }
+      checkHistory(trimmed)
         .then(history => {
+          if (process.env.NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.log('[EXTRACT-FE] HistoryChecker:onHistoryLoaded', {
+              exists: history?.exists,
+              lastStatus: history?.lastStatus,
+              sessionIdPrefix: history?.sessionId ? String(history.sessionId).slice(0, 8) : undefined
+            });
+          }
           onHistoryLoaded?.(history);
         })
-        .catch(() => {
+        .catch((e) => {
+          if (process.env.NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.log('[EXTRACT-FE] HistoryChecker:checkHistory:error', { message: (e as any)?.message });
+          }
           // Error handled by the hook
         });
     }
-  }, [url, checkHistory, onHistoryLoaded]);
+  }, [url, checkHistory, onHistoryLoaded, historyState.checking, historyState.history, historyState.error]);
 
   const getStatus = () => {
     if (historyState.checking) return 'checking';
@@ -165,6 +188,16 @@ export function HistoryChecker({
   };
 
   const status = getStatus();
+
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log('[EXTRACT-FE] HistoryChecker:render', {
+      status,
+      checking: historyState.checking,
+      hasError: !!historyState.error,
+      exists: !!historyState.history?.exists
+    });
+  }
 
   return (
     <motion.div

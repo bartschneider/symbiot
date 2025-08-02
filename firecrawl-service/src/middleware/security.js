@@ -81,125 +81,13 @@ export const helmetConfig = helmet({
 });
 
 /**
- * Advanced Rate Limiting with Cache Integration
+ * Rate Limiting
+ * Disabled per development preference; stubs provided for compatibility.
  */
-export const createRateLimit = (options = {}) => {
-  const {
-    windowMs = config.rateLimit.windowMs,
-    max = config.rateLimit.maxRequests,
-    message = 'Too many requests from this IP, please try again later',
-    skipSuccessfulRequests = false,
-    skipFailedRequests = false,
-    keyPrefix = 'rl:',
-    skip = () => false
-  } = options;
-  
-  return rateLimit({
-    windowMs,
-    max,
-    message: {
-      success: false,
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message,
-        retryAfter: Math.ceil(windowMs / 1000)
-      }
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests,
-    skipFailedRequests,
-    skip,
-    keyGenerator: (req) => {
-      // Use custom rate limit config if available (from auth middleware)
-      if (req.rateLimitConfig) {
-        return `${keyPrefix}${req.rateLimitConfig.identifier}`;
-      }
-      
-      // Default to IP-based limiting
-      return `${keyPrefix}${req.ip}`;
-    },
-    store: {
-      // Custom store using our cache service
-      incr: (key, callback) => {
-        const rateLimitData = cacheService.checkRateLimit(
-          key.replace(keyPrefix, ''),
-          max,
-          windowMs
-        );
-        
-        callback(null, {
-          totalHits: rateLimitData.requestCount,
-          resetTime: rateLimitData.resetTime
-        });
-      },
-      decrement: (key) => {
-        // Not implemented for our use case
-      },
-      resetKey: (key) => {
-        // Clear rate limit for key
-        cacheService.rateLimitCache.del(key);
-      }
-    }
-  });
-};
-
-/**
- * Default Rate Limiting
- */
-export const defaultRateLimit = createRateLimit();
-
-/**
- * Strict Rate Limiting for Authentication Endpoints
- */
-export const authRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per 15 minutes
-  message: 'Too many authentication attempts, please try again in 15 minutes',
-  skipSuccessfulRequests: true,
-  keyPrefix: 'auth:',
-});
-
-/**
- * API Rate Limiting for Conversion Endpoints
- */
-export const apiRateLimit = (req, res, next) => {
-  // Use user-specific limits if available
-  const config = req.rateLimitConfig || {
-    identifier: req.ip,
-    limit: 100,
-    windowMs: 15 * 60 * 1000
-  };
-  
-  const rateLimitData = cacheService.checkRateLimit(
-    config.identifier,
-    config.limit,
-    config.windowMs
-  );
-  
-  // Set rate limit headers
-  res.set({
-    'X-RateLimit-Limit': config.limit,
-    'X-RateLimit-Remaining': rateLimitData.remainingRequests,
-    'X-RateLimit-Reset': Math.ceil(rateLimitData.resetTime.getTime() / 1000),
-    'X-RateLimit-Window': Math.ceil(config.windowMs / 1000)
-  });
-  
-  if (rateLimitData.isLimited) {
-    return res.status(429).json({
-      success: false,
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'API rate limit exceeded',
-        retryAfter: rateLimitData.retryAfter,
-        limit: config.limit,
-        window: Math.ceil(config.windowMs / 1000)
-      }
-    });
-  }
-  
-  next();
-};
+export const createRateLimit = () => (req, res, next) => next();
+export const defaultRateLimit = (req, res, next) => next();
+export const authRateLimit = (req, res, next) => next();
+export const apiRateLimit = (req, res, next) => next();
 
 /**
  * Request ID Middleware

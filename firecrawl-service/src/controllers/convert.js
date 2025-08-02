@@ -1,4 +1,4 @@
-import { windchaserService } from '../services/windchaser.js';
+import { windchaserService } from '../services/firecrawl.js';
 
 /**
  * Convert single URL to Markdown

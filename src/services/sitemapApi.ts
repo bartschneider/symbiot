@@ -1,6 +1,6 @@
-import { 
-  ApiResponse, 
-  SitemapDiscoveryRequest, 
+import {
+  ApiResponse,
+  SitemapDiscoveryRequest,
   SitemapDiscoveryResult,
   BatchScrapingRequest,
   BatchScrapingResult,
@@ -14,21 +14,11 @@ import {
 const API_BASE_URL = 'http://localhost:3001'; // Firecrawl service port
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
-// Demo credentials for development
-const DEMO_CREDENTIALS = {
-  username: 'demo',
-  password: 'demo123'
-};
-
-// Token management
-let authToken: string | null = null;
-let tokenExpiry: number | null = null;
-
 // Error handling utility
 class SitemapApiError extends Error {
   constructor(
-    message: string, 
-    public code: string, 
+    message: string,
+    public code: string,
     public status?: number,
     public requestId?: string
   ) {
@@ -37,57 +27,16 @@ class SitemapApiError extends Error {
   }
 }
 
-// Authentication functions
-async function login(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(DEMO_CREDENTIALS),
-    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-  });
-
-  if (!response.ok) {
-    throw new SitemapApiError('Authentication failed', 'AUTH_FAILED', response.status);
-  }
-
-  const data = await response.json();
-  if (!data.success || !data.data?.token) {
-    throw new SitemapApiError('Invalid authentication response', 'AUTH_INVALID');
-  }
-
-  authToken = data.data.token;
-  // Assume token expires in 23 hours (1 hour buffer)
-  tokenExpiry = Date.now() + (23 * 60 * 60 * 1000);
-  
-  return authToken;
-}
-
-async function getValidToken(): Promise<string> {
-  // Check if we have a valid token
-  if (authToken && tokenExpiry && Date.now() < tokenExpiry) {
-    return authToken;
-  }
-
-  // Get a new token
-  return await login();
-}
-
-// HTTP client wrapper with error handling
+// HTTP client wrapper with error handling (no auth)
 async function apiRequest<T>(
-  endpoint: string, 
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  // Get authentication token
-  const token = await getValidToken();
-  
   const defaultHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Authorization': `Bearer ${token}`,
   };
 
   try {
@@ -382,7 +331,7 @@ export async function checkExtractionHistory(url: string): Promise<{
     extractionCount: number;
     lastStatus?: 'success' | 'failed' | 'processing';
     sessionId?: string;
-  }>(`/api/history/check?url=${encodeURIComponent(url)}`, {
+  }>(`/api/extraction-history/check?url=${encodeURIComponent(url)}`, {
     method: 'GET',
   });
 
@@ -433,7 +382,7 @@ export async function getExtractionSessions(options: {
   const response = await apiRequest<{
     sessions: any[];
     pagination: any;
-  }>(`/api/history/sessions?${params.toString()}`, {
+  }>(`/api/extraction-history/sessions?${params.toString()}`, {
     method: 'GET',
   });
 
@@ -471,7 +420,7 @@ export async function getRetryableUrls(options: {
   if (options.errorCode) params.append('errorCode', options.errorCode);
   if (options.limit) params.append('limit', options.limit.toString());
 
-  const response = await apiRequest<Array<any>>(`/api/history/retryable?${params.toString()}`, {
+  const response = await apiRequest<Array<any>>(`/api/extraction-history/retryable?${params.toString()}`, {
     method: 'GET',
   });
 
@@ -499,7 +448,7 @@ export async function createRetrySession(extractionIds: string[], options: {
     session: any;
     extractions: any[];
     originalExtractions: any[];
-  }>('/api/history/retry', {
+  }>('/api/extraction-history/retry', {
     method: 'POST',
     body: JSON.stringify({
       extractionIds,
@@ -527,7 +476,7 @@ export async function getSessionDetails(sessionId: string): Promise<{
   const response = await apiRequest<{
     session: any;
     extractions: any[];
-  }>(`/api/history/sessions/${sessionId}`, {
+  }>(`/api/extraction-history/sessions/${sessionId}`, {
     method: 'GET',
   });
 

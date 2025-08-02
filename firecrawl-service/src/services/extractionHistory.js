@@ -1,5 +1,16 @@
 import { query, transaction, buildWhereClause, buildPaginationClause } from './database.js';
 
+const isDev = () => (process.env.NODE_ENV !== 'production');
+const slog = (event, ctx = {}) => {
+  if (!isDev()) return;
+  try {
+    const safe = JSON.stringify(ctx, (_, v) => (typeof v === 'string' && v.length > 200 ? v.slice(0, 200) + '…' : v));
+    console.log(`[EXTRACT-SVC] ${event} ${safe}`);
+  } catch {
+    console.log(`[EXTRACT-SVC] ${event}`, ctx);
+  }
+};
+
 /**
  * Extraction History Service
  * Handles all database operations for tracking sitemap extraction history
@@ -18,13 +29,14 @@ export const createExtractionSession = async (userId, sourceUrl, options = {}) =
 
   const sessionQuery = `
     INSERT INTO extraction_sessions (
-      user_id, session_name, source_url, total_urls, 
+      user_id, session_name, source_url, total_urls,
       chunk_size, max_retries, status, started_at
-    ) 
+    )
     VALUES ($1, $2, $3, $4, $5, $6, 'processing', NOW())
     RETURNING *
   `;
 
+  const t0 = Date.now();
   const result = await query(sessionQuery, [
     userId,
     sessionName || `Extraction - ${new Date().toISOString().split('T')[0]}`,
@@ -33,6 +45,7 @@ export const createExtractionSession = async (userId, sourceUrl, options = {}) =
     chunkSize,
     maxRetries
   ]);
+  slog('createExtractionSession', { userId, ms: Date.now() - t0, sessionId: result.rows?.[0]?.id });
 
   return result.rows[0];
 };
@@ -49,8 +62,8 @@ export const updateExtractionSession = async (sessionId, updates) => {
   } = updates;
 
   const updateQuery = `
-    UPDATE extraction_sessions 
-    SET 
+    UPDATE extraction_sessions
+    SET
       status = COALESCE($2, status),
       processing_time_ms = COALESCE($3, processing_time_ms),
       error_message = COALESCE($4, error_message),
@@ -60,6 +73,7 @@ export const updateExtractionSession = async (sessionId, updates) => {
     RETURNING *
   `;
 
+  const t0 = Date.now();
   const result = await query(updateQuery, [
     sessionId,
     status,
@@ -67,6 +81,7 @@ export const updateExtractionSession = async (sessionId, updates) => {
     errorMessage,
     completedAt
   ]);
+  slog('updateExtractionSession', { sessionId, status, ms: Date.now() - t0, updated: !!result.rows?.[0] });
 
   return result.rows[0];
 };
@@ -97,7 +112,9 @@ export const createUrlExtractions = async (sessionId, urls, chunkNumber = 1) => 
     RETURNING *
   `;
 
+  const t0 = Date.now();
   const result = await query(insertQuery, values);
+  slog('createUrlExtractions', { sessionId, chunkNumber, count: result.rows?.length, ms: Date.now() - t0 });
   return result.rows;
 };
 
@@ -120,8 +137,8 @@ export const updateUrlExtraction = async (extractionId, updates) => {
   } = updates;
 
   const updateQuery = `
-    UPDATE url_extractions 
-    SET 
+    UPDATE url_extractions
+    SET
       status = COALESCE($2, status),
       http_status_code = COALESCE($3, http_status_code),
       content_size_bytes = COALESCE($4, content_size_bytes),
@@ -138,6 +155,7 @@ export const updateUrlExtraction = async (extractionId, updates) => {
     RETURNING *
   `;
 
+  const t0 = Date.now();
   const result = await query(updateQuery, [
     extractionId,
     status,
@@ -152,6 +170,7 @@ export const updateUrlExtraction = async (extractionId, updates) => {
     imagesCount,
     processedAt
   ]);
+  slog('updateUrlExtraction', { extractionId, status, ms: Date.now() - t0, updated: !!result.rows?.[0] });
 
   return result.rows[0];
 };
@@ -177,12 +196,12 @@ export const getUserSessions = async (userId, options = {}) => {
   const { clause: paginationClause } = buildPaginationClause(page, limit);
 
   const sessionsQuery = `
-    SELECT 
+    SELECT
       s.*,
       ROUND(
-        CASE 
+        CASE
           WHEN s.total_urls > 0 THEN (s.successful_urls::FLOAT / s.total_urls * 100)
-          ELSE 0 
+          ELSE 0
         END, 2
       ) AS success_rate_percent
     FROM extraction_sessions s
@@ -197,10 +216,12 @@ export const getUserSessions = async (userId, options = {}) => {
     ${whereClause}
   `;
 
+  const t0 = Date.now();
   const [sessions, count] = await Promise.all([
     query(sessionsQuery, values),
     query(countQuery, values)
   ]);
+  slog('getUserSessions', { userId, returned: sessions.rows?.length, total: parseInt(count.rows?.[0]?.total || '0', 10), ms: Date.now() - t0 });
 
   return {
     sessions: sessions.rows,
@@ -219,29 +240,32 @@ export const getUserSessions = async (userId, options = {}) => {
 export const getSessionDetails = async (sessionId, userId) => {
   // Get session information
   const sessionQuery = `
-    SELECT * FROM session_statistics 
+    SELECT * FROM session_statistics
     WHERE id = $1 AND user_id = $2
   `;
 
+  const t0 = Date.now();
   const sessionResult = await query(sessionQuery, [sessionId, userId]);
   
   if (sessionResult.rows.length === 0) {
+    slog('getSessionDetails:not-found', { sessionId, userId, ms: Date.now() - t0 });
     throw new Error('Session not found or access denied');
   }
 
   // Get URL extractions
   const extractionsQuery = `
-    SELECT 
+    SELECT
       id, url, chunk_number, sequence_number, status,
       http_status_code, content_size_bytes, processing_time_ms,
       error_code, error_message, title, description,
       images_count, retry_count, created_at, processed_at
-    FROM url_extractions 
+    FROM url_extractions
     WHERE session_id = $1
     ORDER BY chunk_number, sequence_number
   `;
 
   const extractionsResult = await query(extractionsQuery, [sessionId]);
+  slog('getSessionDetails:success', { sessionId, urls: extractionsResult.rows?.length, ms: Date.now() - t0 });
 
   return {
     session: sessionResult.rows[0],
@@ -278,7 +302,7 @@ export const getRetryableUrls = async (userId, options = {}) => {
   filters += ` AND (r.last_retry_at IS NULL OR r.last_retry_at < NOW() - INTERVAL '${minRetryInterval} milliseconds')`;
 
   const retryableQuery = `
-    SELECT 
+    SELECT
       r.extraction_id,
       r.url,
       r.error_code,
@@ -298,7 +322,9 @@ export const getRetryableUrls = async (userId, options = {}) => {
 
   values.push(limit);
 
+  const t0 = Date.now();
   const result = await query(retryableQuery, values);
+  slog('getRetryableUrls', { userId, count: result.rows?.length, ms: Date.now() - t0 });
   return result.rows;
 };
 
@@ -323,9 +349,11 @@ export const createRetrySession = async (userId, extractionIds, options = {}) =>
     WHERE ue.id = ANY($1) AND es.user_id = $2 AND ue.status = 'failed'
   `;
 
+  const t0 = Date.now();
   const urlsResult = await query(urlsQuery, [extractionIds, userId]);
   
   if (urlsResult.rows.length === 0) {
+    slog('createRetrySession:no-retryable', { userId, ms: Date.now() - t0 });
     throw new Error('No retryable URLs found');
   }
 
@@ -347,9 +375,9 @@ export const createRetrySession = async (userId, extractionIds, options = {}) =>
         original_extraction_id, retry_session_id, attempt_number,
         previous_error_code, previous_error_message, retry_strategy
       )
-      SELECT 
+      SELECT
         $1, $2, COALESCE(MAX(attempt_number), 0) + 1, $3, $4, $5
-      FROM extraction_retries 
+      FROM extraction_retries
       WHERE original_extraction_id = $1
     `,
     params: [
@@ -366,7 +394,9 @@ export const createRetrySession = async (userId, extractionIds, options = {}) =>
   const urlExtractions = await createUrlExtractions(retrySession.id, urls);
 
   // Execute retry record creation in transaction
+  const t1 = Date.now();
   await transaction(retryQueries);
+  slog('createRetrySession:success', { userId, retrySessionId: retrySession.id, items: urls.length, ms: (Date.now() - t0), txMs: (Date.now() - t1) });
 
   return {
     session: retrySession,
@@ -387,8 +417,8 @@ export const updateRetryAttempt = async (retryId, status, updates = {}) => {
   } = updates;
 
   const updateQuery = `
-    UPDATE extraction_retries 
-    SET 
+    UPDATE extraction_retries
+    SET
       status = $2,
       error_code = COALESCE($3, error_code),
       error_message = COALESCE($4, error_message),
@@ -398,6 +428,7 @@ export const updateRetryAttempt = async (retryId, status, updates = {}) => {
     RETURNING *
   `;
 
+  const t0 = Date.now();
   const result = await query(updateQuery, [
     retryId,
     status,
@@ -406,6 +437,7 @@ export const updateRetryAttempt = async (retryId, status, updates = {}) => {
     processingTimeMs,
     completedAt
   ]);
+  slog('updateRetryAttempt', { retryId, status, ms: Date.now() - t0, updated: !!result.rows?.[0] });
 
   return result.rows[0];
 };
@@ -436,16 +468,16 @@ export const getAnalytics = async (userId, options = {}) => {
 
   // Time series data
   const timeSeriesQuery = `
-    SELECT 
+    SELECT
       DATE_TRUNC('${groupBy}', created_at) as period,
       COUNT(*) as total_sessions,
       SUM(total_urls) as total_urls,
       SUM(successful_urls) as successful_urls,
       SUM(failed_urls) as failed_urls,
       ROUND(AVG(
-        CASE 
+        CASE
           WHEN total_urls > 0 THEN (successful_urls::FLOAT / total_urls * 100)
-          ELSE 0 
+          ELSE 0
         END
       ), 2) as avg_success_rate,
       AVG(processing_time_ms) as avg_processing_time
@@ -458,7 +490,7 @@ export const getAnalytics = async (userId, options = {}) => {
 
   // Error analysis
   const errorAnalysisQuery = `
-    SELECT 
+    SELECT
       error_code,
       COUNT(*) as count,
       ROUND((COUNT(*)::FLOAT / SUM(COUNT(*)) OVER ()) * 100, 2) as percentage
@@ -472,15 +504,15 @@ export const getAnalytics = async (userId, options = {}) => {
 
   // Overall statistics
   const overallStatsQuery = `
-    SELECT 
+    SELECT
       COUNT(*) as total_sessions,
       SUM(total_urls) as total_urls_processed,
       SUM(successful_urls) as total_successful,
       SUM(failed_urls) as total_failed,
       ROUND(
-        CASE 
+        CASE
           WHEN SUM(total_urls) > 0 THEN (SUM(successful_urls)::FLOAT / SUM(total_urls) * 100)
-          ELSE 0 
+          ELSE 0
         END, 2
       ) as overall_success_rate,
       ROUND(AVG(processing_time_ms), 0) as avg_processing_time,
@@ -490,11 +522,13 @@ export const getAnalytics = async (userId, options = {}) => {
     WHERE user_id = $1 ${dateFilter}
   `;
 
+  const t0 = Date.now();
   const [timeSeries, errorAnalysis, overallStats] = await Promise.all([
     query(timeSeriesQuery, values),
     query(errorAnalysisQuery, values),
     query(overallStatsQuery, values)
   ]);
+  slog('getAnalytics', { userId, periods: timeSeries.rows?.length, errors: errorAnalysis.rows?.length, ms: Date.now() - t0 });
 
   return {
     timeSeries: timeSeries.rows,
@@ -518,24 +552,27 @@ export const getAnalytics = async (userId, options = {}) => {
 export const deleteSession = async (sessionId, userId) => {
   // Verify ownership
   const verifyQuery = `
-    SELECT id FROM extraction_sessions 
+    SELECT id FROM extraction_sessions
     WHERE id = $1 AND user_id = $2
   `;
 
+  const t0 = Date.now();
   const verifyResult = await query(verifyQuery, [sessionId, userId]);
   
   if (verifyResult.rows.length === 0) {
+    slog('deleteSession:not-found', { sessionId, userId, ms: Date.now() - t0 });
     throw new Error('Session not found or access denied');
   }
 
   // Delete session (cascade will handle related records)
   const deleteQuery = `
-    DELETE FROM extraction_sessions 
+    DELETE FROM extraction_sessions
     WHERE id = $1 AND user_id = $2
     RETURNING *
   `;
 
   const result = await query(deleteQuery, [sessionId, userId]);
+  slog('deleteSession:success', { sessionId, ms: Date.now() - t0, deleted: !!result.rows?.[0] });
   return result.rows[0];
 };
 
@@ -546,8 +583,8 @@ export const getUrlPatternStats = async (userId, options = {}) => {
   const { limit = 10 } = options;
 
   const statsQuery = `
-    SELECT 
-      CASE 
+    SELECT
+      CASE
         WHEN url ~ '^https?://[^/]+/$' THEN 'homepage'
         WHEN url ~ '/blog/' THEN 'blog'
         WHEN url ~ '/product/' THEN 'product'
@@ -570,7 +607,9 @@ export const getUrlPatternStats = async (userId, options = {}) => {
     LIMIT $2
   `;
 
+  const t0 = Date.now();
   const result = await query(statsQuery, [userId, limit]);
+  slog('getUrlPatternStats', { userId, count: result.rows?.length, ms: Date.now() - t0 });
   return result.rows;
 };
 
