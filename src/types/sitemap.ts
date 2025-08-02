@@ -303,3 +303,77 @@ export interface PerformanceMetrics {
   operationType: string;
   timestamp: number;
 }
+
+// Extraction History types
+export interface ExtractionHistory {
+  exists: boolean;
+  lastExtracted?: string;
+  extractionCount: number;
+  lastStatus?: 'success' | 'failed' | 'processing';
+  sessionId?: string;
+}
+
+export interface ExtractionSession {
+  id: string;
+  sessionName: string;
+  sourceUrl: string;
+  status: 'processing' | 'completed' | 'failed' | 'cancelled';
+  totalUrls: number;
+  successfulUrls: number;
+  failedUrls: number;
+  successRatePercent: number;
+  createdAt: string;
+  completedAt?: string;
+  processingTimeMs?: number;
+  errorMessage?: string;
+}
+
+export interface ExtractionSessionDetails {
+  session: ExtractionSession;
+  extractions: UrlExtraction[];
+}
+
+export interface UrlExtraction {
+  id: string;
+  url: string;
+  chunkNumber: number;
+  sequenceNumber: number;
+  status: 'pending' | 'processing' | 'success' | 'failed';
+  httpStatusCode?: number;
+  contentSizeBytes?: number;
+  processingTimeMs?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  title?: string;
+  description?: string;
+  imagesCount: number;
+  retryCount: number;
+  createdAt: string;
+  processedAt?: string;
+}
+
+export interface RetryableUrl {
+  extractionId: string;
+  url: string;
+  errorCode: string;
+  errorMessage: string;
+  retryCount: number;
+  sessionId: string;
+  sourceUrl: string;
+  sessionName: string;
+  createdAt: string;
+  lastRetryAt?: string;
+}
+
+export interface UserDecision {
+  action: 'extract' | 'update' | 'retry' | 'skip';
+  sourceUrl: string;
+  history?: ExtractionHistory;
+}
+
+export interface HistoryWorkflowState {
+  checking: boolean;
+  history: ExtractionHistory | null;
+  decision: UserDecision | null;
+  error: string | null;
+}

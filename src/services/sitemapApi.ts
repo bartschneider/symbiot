@@ -364,5 +364,182 @@ export function getErrorCode(error: unknown): string {
   return 'UNKNOWN_ERROR';
 }
 
+// Extraction History API Functions
+
+/**
+ * Check if a URL has been extracted before
+ */
+export async function checkExtractionHistory(url: string): Promise<{
+  exists: boolean;
+  lastExtracted?: string;
+  extractionCount: number;
+  lastStatus?: 'success' | 'failed' | 'processing';
+  sessionId?: string;
+}> {
+  const response = await apiRequest<{
+    exists: boolean;
+    lastExtracted?: string;
+    extractionCount: number;
+    lastStatus?: 'success' | 'failed' | 'processing';
+    sessionId?: string;
+  }>(`/api/history/check?url=${encodeURIComponent(url)}`, {
+    method: 'GET',
+  });
+
+  if (!response.success || !response.data) {
+    throw new SitemapApiError(
+      response.error?.message || 'Failed to check extraction history',
+      response.error?.code || 'HISTORY_CHECK_FAILED'
+    );
+  }
+
+  return response.data;
+}
+
+/**
+ * Get extraction sessions for current user
+ */
+export async function getExtractionSessions(options: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  sourceUrl?: string;
+} = {}): Promise<{
+  sessions: Array<{
+    id: string;
+    sessionName: string;
+    sourceUrl: string;
+    status: string;
+    totalUrls: number;
+    successfulUrls: number;
+    failedUrls: number;
+    successRatePercent: number;
+    createdAt: string;
+    completedAt?: string;
+  }>;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}> {
+  const params = new URLSearchParams();
+  if (options.page) params.append('page', options.page.toString());
+  if (options.limit) params.append('limit', options.limit.toString());
+  if (options.status) params.append('status', options.status);
+  if (options.sourceUrl) params.append('sourceUrl', options.sourceUrl);
+
+  const response = await apiRequest<{
+    sessions: any[];
+    pagination: any;
+  }>(`/api/history/sessions?${params.toString()}`, {
+    method: 'GET',
+  });
+
+  if (!response.success || !response.data) {
+    throw new SitemapApiError(
+      response.error?.message || 'Failed to get extraction sessions',
+      response.error?.code || 'SESSIONS_FAILED'
+    );
+  }
+
+  return response.data;
+}
+
+/**
+ * Get retryable URLs for current user
+ */
+export async function getRetryableUrls(options: {
+  sessionId?: string;
+  errorCode?: string;
+  limit?: number;
+} = {}): Promise<Array<{
+  extractionId: string;
+  url: string;
+  errorCode: string;
+  errorMessage: string;
+  retryCount: number;
+  sessionId: string;
+  sourceUrl: string;
+  sessionName: string;
+  createdAt: string;
+  lastRetryAt?: string;
+}>> {
+  const params = new URLSearchParams();
+  if (options.sessionId) params.append('sessionId', options.sessionId);
+  if (options.errorCode) params.append('errorCode', options.errorCode);
+  if (options.limit) params.append('limit', options.limit.toString());
+
+  const response = await apiRequest<Array<any>>(`/api/history/retryable?${params.toString()}`, {
+    method: 'GET',
+  });
+
+  if (!response.success || !response.data) {
+    throw new SitemapApiError(
+      response.error?.message || 'Failed to get retryable URLs',
+      response.error?.code || 'RETRYABLE_FAILED'
+    );
+  }
+
+  return response.data;
+}
+
+/**
+ * Create retry session from failed extractions
+ */
+export async function createRetrySession(extractionIds: string[], options: {
+  sessionName?: string;
+} = {}): Promise<{
+  session: any;
+  extractions: any[];
+  originalExtractions: any[];
+}> {
+  const response = await apiRequest<{
+    session: any;
+    extractions: any[];
+    originalExtractions: any[];
+  }>('/api/history/retry', {
+    method: 'POST',
+    body: JSON.stringify({
+      extractionIds,
+      sessionName: options.sessionName
+    }),
+  });
+
+  if (!response.success || !response.data) {
+    throw new SitemapApiError(
+      response.error?.message || 'Failed to create retry session',
+      response.error?.code || 'RETRY_SESSION_FAILED'
+    );
+  }
+
+  return response.data;
+}
+
+/**
+ * Get session details with URL extractions
+ */
+export async function getSessionDetails(sessionId: string): Promise<{
+  session: any;
+  extractions: any[];
+}> {
+  const response = await apiRequest<{
+    session: any;
+    extractions: any[];
+  }>(`/api/history/sessions/${sessionId}`, {
+    method: 'GET',
+  });
+
+  if (!response.success || !response.data) {
+    throw new SitemapApiError(
+      response.error?.message || 'Failed to get session details',
+      response.error?.code || 'SESSION_DETAILS_FAILED'
+    );
+  }
+
+  return response.data;
+}
+
 // Export the error class for external use
 export { SitemapApiError };

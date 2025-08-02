@@ -7,10 +7,17 @@ import Button from '@/components/ui/Button';
 import { useSitemapDiscovery } from '@/hooks/useSitemapDiscovery';
 import { useSelection } from '@/hooks/useSelection';
 import { useContentExtraction } from '@/hooks/useContentExtraction';
+import { useExtractionHistory } from '@/hooks/useExtractionHistory';
 import { downloadExtractionResults, downloadExtractionResultsAsJson } from '@/utils/downloadUtils';
+import HistoryChecker from '@/components/extraction/HistoryChecker';
+import HistoryDecisionPrompt from '@/components/extraction/HistoryDecisionPrompt';
+import HistoryStatusCard from '@/components/extraction/HistoryStatusCard';
+import SessionTracker from '@/components/extraction/SessionTracker';
 import {
   SitemapDiscoveryRequest,
-  LinkCategory
+  LinkCategory,
+  ExtractionHistory,
+  UserDecision
 } from '@/types/sitemap';
 
 interface SitemapExtractorProps {
@@ -324,6 +331,8 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
     progress: 0,
     message: 'Ready to extract sitemap'
   });
+  const [showDecisionPrompt, setShowDecisionPrompt] = useState(false);
+  const [currentHistory, setCurrentHistory] = useState<ExtractionHistory | null>(null);
 
   // Hooks
   const sitemapDiscovery = useSitemapDiscovery({
@@ -346,6 +355,19 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
   });
 
   const selection = useSelection(sitemapDiscovery.linkData);
+  
+  const historyHook = useExtractionHistory({
+    onDecision: (decision: UserDecision) => {
+      setShowDecisionPrompt(false);
+      // Proceed with extraction based on decision
+      if (decision.action !== 'skip') {
+        handleContentExtraction(decision);
+      }
+    },
+    onError: (error) => {
+      console.error('History error:', error);
+    }
+  });
   
   const contentExtraction = useContentExtraction({
     onSuccess: (result) => {
@@ -411,8 +433,16 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
     }
   }, [url, sitemapDiscovery]);
 
+  // Handle history-based decision for extraction
+  const handleHistoryLoaded = useCallback((history: ExtractionHistory) => {
+    setCurrentHistory(history);
+    if (historyHook.needsDecision(history)) {
+      setShowDecisionPrompt(true);
+    }
+  }, [historyHook]);
+
   // Handle content extraction
-  const handleContentExtraction = useCallback(async () => {
+  const handleContentExtraction = useCallback(async (decision?: UserDecision) => {
     const selectedUrls = selection.selectedUrls;
     console.log('Content extraction called with URLs:', selectedUrls.length, selectedUrls);
     if (selectedUrls.length === 0) {
@@ -436,6 +466,15 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
     }
   }, [selection.selectedUrls, contentExtraction]);
 
+  // Check for history decision before extraction
+  const handleContentExtractionWithHistory = useCallback(async () => {
+    if (currentHistory && historyHook.needsDecision(currentHistory)) {
+      setShowDecisionPrompt(true);
+    } else {
+      await handleContentExtraction();
+    }
+  }, [currentHistory, historyHook, handleContentExtraction]);
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -454,85 +493,18 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
     }
   };
 
-  // Render extraction progress
+  // Render extraction progress using SessionTracker
   const renderExtractionProgress = useMemo(() => {
     if (!contentExtraction.loading || !contentExtraction.progress) return null;
 
-    const progress = contentExtraction.progress.progress;
-    const currentChunk = Math.ceil(progress.completed / 25); // Based on CHUNK_SIZE = 25
-    const totalChunks = Math.ceil(progress.total / 25);
-    const successfulResults = contentExtraction.results.filter(r => r.success).length;
-    const failedResults = contentExtraction.results.filter(r => !r.success).length;
-
     return (
-      <ExtractionProgressCard>
-        <ProgressHeader>
-          <ProgressSpinner />
-          Extracting Content
-        </ProgressHeader>
-        
-        <ProgressBar>
-          <ProgressFill 
-            $progress={progress.percentage}
-            animate={{ width: `${progress.percentage}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </ProgressBar>
-        
-        <ProgressStatsGrid>
-          <ProgressStat>
-            <ProgressStatValue>{progress.percentage}%</ProgressStatValue>
-            <ProgressStatLabel>Complete</ProgressStatLabel>
-          </ProgressStat>
-          <ProgressStat>
-            <ProgressStatValue>{currentChunk} / {totalChunks}</ProgressStatValue>
-            <ProgressStatLabel>Chunks</ProgressStatLabel>
-          </ProgressStat>
-          <ProgressStat>
-            <ProgressStatValue>{progress.completed} / {progress.total}</ProgressStatValue>
-            <ProgressStatLabel>URLs</ProgressStatLabel>
-          </ProgressStat>
-          <ProgressStat>
-            <ProgressStatValue>✅ {successfulResults}</ProgressStatValue>
-            <ProgressStatLabel>Success</ProgressStatLabel>
-          </ProgressStat>
-          {failedResults > 0 && (
-            <ProgressStat>
-              <ProgressStatValue>❌ {failedResults}</ProgressStatValue>
-              <ProgressStatLabel>Failed</ProgressStatLabel>
-            </ProgressStat>
-          )}
-          {progress.rate && progress.rate > 0 && (
-            <ProgressStat>
-              <ProgressStatValue>{progress.rate.toFixed(1)}/min</ProgressStatValue>
-              <ProgressStatLabel>Rate</ProgressStatLabel>
-            </ProgressStat>
-          )}
-        </ProgressStatsGrid>
-        
-        {progress.currentUrl && (
-          <div>
-            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#888' }}>
-              Currently processing:
-            </p>
-            <CurrentProcessingUrl>
-              {progress.currentUrl}
-            </CurrentProcessingUrl>
-          </div>
-        )}
-        
-        <ProgressActions>
-          <Button 
-            variant="ghost" 
-            onClick={contentExtraction.cancel}
-            disabled={!contentExtraction.loading}
-          >
-            Cancel Extraction
-          </Button>
-        </ProgressActions>
-      </ExtractionProgressCard>
+      <SessionTracker
+        extractionHook={contentExtraction}
+        userDecision={historyHook.historyState.decision}
+        sessionName={`Extraction - ${new Date().toLocaleDateString()}`}
+      />
     );
-  }, [contentExtraction.loading, contentExtraction.progress, contentExtraction.results, contentExtraction.cancel]);
+  }, [contentExtraction.loading, contentExtraction.progress, contentExtraction, historyHook.historyState.decision]);
 
   // Render category cards
   const renderCategoryCards = useMemo(() => {
@@ -634,6 +606,31 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
           </motion.div>
         </Section>
 
+        {/* History Checker */}
+        {url.trim() && (
+          <Section>
+            <motion.div variants={itemVariants}>
+              <HistoryChecker
+                url={url.trim()}
+                onHistoryLoaded={handleHistoryLoaded}
+                historyHook={historyHook}
+              />
+            </motion.div>
+          </Section>
+        )}
+
+        {/* History Status Card */}
+        {url.trim() && (
+          <Section>
+            <motion.div variants={itemVariants}>
+              <HistoryStatusCard
+                sourceUrl={url.trim()}
+                historyHook={historyHook}
+              />
+            </motion.div>
+          </Section>
+        )}
+
         {/* Loading */}
         {loadingState.isLoading && (
           <Section>
@@ -719,7 +716,7 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
                     Clear Selection
                   </Button>
                   <Button 
-                    onClick={handleContentExtraction}
+                    onClick={handleContentExtractionWithHistory}
                     disabled={contentExtraction.loading || selection.selectedCount === 0}
                   >
                     Extract Content
@@ -770,6 +767,16 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
               </ActionSection>
             </motion.div>
           </Section>
+        )}
+
+        {/* History Decision Prompt */}
+        {showDecisionPrompt && currentHistory && (
+          <HistoryDecisionPrompt
+            history={currentHistory}
+            sourceUrl={url.trim()}
+            onDecision={historyHook.makeDecision}
+            historyHook={historyHook}
+          />
         )}
       </motion.div>
     </Container>
