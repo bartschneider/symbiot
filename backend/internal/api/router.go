@@ -33,6 +33,7 @@ func NewRouter(cfg *config.Config, db *storage.Database) *gin.Engine {
 	// Initialize handlers
 	chartHandler := handlers.NewChartHandler(db)
 	textHandler := handlers.NewTextHandler(db)
+	sitemapHandler := handlers.NewSitemapHandler(db, cfg)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -82,6 +83,19 @@ func NewRouter(cfg *config.Config, db *storage.Database) *gin.Engine {
 			text.GET("/entities", textHandler.GetPopularEntities)
 		}
 
+		// Sitemap and extraction endpoints
+		sitemap := v1.Group("/sitemap")
+		{
+			sitemap.POST("/discover", sitemapHandler.DiscoverSitemap)
+			sitemap.POST("/extract/batch", sitemapHandler.StartBatchExtraction)
+			sitemap.GET("/extract/:sessionId/progress", sitemapHandler.GetExtractionProgress)
+			sitemap.POST("/extract/:sessionId/cancel", sitemapHandler.CancelExtraction)
+			sitemap.POST("/extract/:sessionId/retry", sitemapHandler.RetryFailedExtractions)
+			sitemap.GET("/extract/:sessionId", sitemapHandler.GetExtractionDetails)
+			sitemap.DELETE("/extract/:sessionId", sitemapHandler.DeleteExtractionSession)
+			sitemap.GET("/history", sitemapHandler.GetExtractionHistory)
+		}
+
 		// Sample data endpoints for development
 		samples := v1.Group("/samples")
 		{
@@ -94,10 +108,10 @@ func NewRouter(cfg *config.Config, db *storage.Database) *gin.Engine {
 		{
 			analytics.GET("/dashboard", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{
-					"datasets_count": 0,
-					"analyses_count": 0,
+					"datasets_count":    0,
+					"analyses_count":    0,
 					"total_data_points": 0,
-					"recent_activity": []gin.H{},
+					"recent_activity":   []gin.H{},
 				})
 			})
 		}

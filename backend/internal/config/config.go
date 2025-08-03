@@ -9,13 +9,14 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Port     string
-	GinMode  string
-	Database DatabaseConfig
-	CORS     CORSConfig
-	JWT      JWTConfig
-	API      APIConfig
-	Cache    CacheConfig
+	Port      string
+	GinMode   string
+	Database  DatabaseConfig
+	CORS      CORSConfig
+	JWT       JWTConfig
+	API       APIConfig
+	Cache     CacheConfig
+	Firecrawl FirecrawlConfig
 }
 
 // DatabaseConfig holds database configuration
@@ -54,6 +55,16 @@ type CacheConfig struct {
 	TTL      time.Duration
 }
 
+// FirecrawlConfig holds firecrawl service configuration
+type FirecrawlConfig struct {
+	BaseURL             string
+	APIKey              string
+	TimeoutSeconds      int
+	MaxRetries          int
+	ExtractionTimeoutMs int
+	ConcurrentJobs      int
+}
+
 // New creates a new configuration instance
 func New() *Config {
 	return &Config{
@@ -83,6 +94,14 @@ func New() *Config {
 		Cache: CacheConfig{
 			RedisURL: getEnv("REDIS_URL", "localhost:6379"),
 			TTL:      parseDuration(getEnv("CACHE_TTL", "300s")),
+		},
+		Firecrawl: FirecrawlConfig{
+			BaseURL:             getEnv("FIRECRAWL_BASE_URL", "http://firecrawl-service:3001"),
+			APIKey:              getEnv("FIRECRAWL_API_KEY", ""),
+			TimeoutSeconds:      getEnvAsInt("FIRECRAWL_TIMEOUT_SECONDS", 30),
+			MaxRetries:          getEnvAsInt("FIRECRAWL_MAX_RETRIES", 3),
+			ExtractionTimeoutMs: getEnvAsInt("FIRECRAWL_EXTRACTION_TIMEOUT_MS", 60000),
+			ConcurrentJobs:      getEnvAsInt("FIRECRAWL_CONCURRENT_JOBS", 5),
 		},
 	}
 }
