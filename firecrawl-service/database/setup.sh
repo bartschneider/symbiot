@@ -231,7 +231,7 @@ DATABASE_QUERY_TIMEOUT=30000
 
 # PgAdmin Configuration (Development)
 PGADMIN_PORT=5050
-PGADMIN_PASSWORD=admin123
+PGADMIN_PASSWORD=secure_pgadmin_password_change_me
 
 # Redis Configuration
 REDIS_CACHE_PORT=6380

@@ -193,12 +193,22 @@ const server = app.listen(PORT, HOST, async () => {
   }
 
   // Initialize database connection
+  const databaseRequired = process.env.DATABASE_REQUIRED === 'true';
   try {
     await initDatabase();
     console.log('✅ Database connection established');
   } catch (error) {
     console.error('❌ Failed to initialize database:', error.message);
-    console.log('⚠️  Application will continue without database features');
+    
+    if (databaseRequired) {
+      console.error('🚨 Database is required but unavailable. Application cannot start.');
+      console.error('   Check database connection and ensure PostgreSQL is running.');
+      console.error('   Connection details: postgresql://[user]:[password]@[host]:[port]/[database]');
+      process.exit(1);
+    } else {
+      console.log('⚠️  Application will continue without database features');
+      console.log('   Set DATABASE_REQUIRED=true to make database mandatory');
+    }
   }
   
   // Log configuration (non-sensitive)

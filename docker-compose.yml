@@ -18,6 +18,7 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./firecrawl-service/database/init:/docker-entrypoint-initdb.d:ro
     networks:
       - synthora-network
     restart: unless-stopped
@@ -72,10 +73,34 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-secure-jwt-secret-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3030,http://localhost:5173}
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - CACHE_TTL_SECONDS=3600
+      - PLAYWRIGHT_TIMEOUT=30000
+      - PLAYWRIGHT_MAX_CONCURRENT=3
+      - CONTENT_MAX_SIZE_MB=10
+      - CONTENT_MAX_TIMEOUT_MS=60000
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-synthora_prod}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - REQUIRE_DATABASE=false
+      # Playwright ARM64 configuration
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true
+      - PLAYWRIGHT_BROWSERS_PATH=/usr/bin
+      - PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
     ports:
       - "${FIRECRAWL_PORT:-3001}:3001"
     networks:
       - synthora-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -135,7 +160,11 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
-  postgres_data:
+  firecrawl_logs:
+    driver: local
+  firecrawl_temp:
     driver: local

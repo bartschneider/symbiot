@@ -19,7 +19,7 @@ services:
       - ./database/init:/docker-entrypoint-initdb.d:ro
       - ./database/backups:/backups
     networks:
-      - sitemap-dev-network
+      - sitemap-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U windchaser_user -d windchaser_db"]
@@ -49,18 +49,24 @@ services:
     platform: linux/arm64
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@windchaser.com
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-secure_pgadmin_password_change_me}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
-      - sitemap-dev-network
+      - sitemap-network
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     profiles:
       - admin
 
@@ -74,16 +80,25 @@ services:
     volumes:
       - redis_cache_data:/data
     networks:
-      - sitemap-dev-network
+      - sitemap-network
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     profiles:
       - cache
 
 # Networks
 networks:
-  sitemap-dev-network:
-    external: true
+  sitemap-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 # Volumes
 volumes:

@@ -2,10 +2,17 @@
 -- This script sets up the complete schema for tracking extraction sessions and URL processing
 
 -- Create database user with appropriate privileges
-CREATE USER IF NOT EXISTS windchaser_user WITH PASSWORD 'windchaser_password';
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = 'windchaser_user') THEN
+        CREATE USER windchaser_user WITH PASSWORD 'windchaser_password';
+    END IF;
+END
+$$;
 
 -- Create the database (if not exists)
-CREATE DATABASE IF NOT EXISTS windchaser_db OWNER windchaser_user;
+SELECT 'CREATE DATABASE windchaser_db OWNER windchaser_user'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'windchaser_db')\gexec
 
 -- Grant necessary privileges
 GRANT ALL PRIVILEGES ON DATABASE windchaser_db TO windchaser_user;
