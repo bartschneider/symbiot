@@ -25,16 +25,41 @@ export const createExtractionSession = async (userId, sourceUrl, options = {}) =
     RETURNING *
   `;
 
-  const result = await query(sessionQuery, [
-    userId,
-    sessionName || `Extraction - ${new Date().toISOString().split('T')[0]}`,
-    sourceUrl,
-    totalUrls,
-    chunkSize,
-    maxRetries
-  ]);
+  try {
+    const result = await query(sessionQuery, [
+      userId,
+      sessionName || `Extraction - ${new Date().toISOString().split('T')[0]}`,
+      sourceUrl,
+      totalUrls,
+      chunkSize,
+      maxRetries
+    ]);
 
-  return result.rows[0];
+    return result.rows[0];
+  } catch (error) {
+    // Enhanced error context for debugging
+    const context = {
+      operation: 'createExtractionSession',
+      userId,
+      sourceUrl,
+      sessionName: sessionName || 'auto-generated',
+      totalUrls,
+      chunkSize,
+      maxRetries
+    };
+
+    if (error.code === '23505') {
+      throw new Error(`Duplicate extraction session detected. Session with same parameters already exists for user ${userId}. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === '23503') {
+      throw new Error(`Database constraint violation: Invalid user ID ${userId} or foreign key constraint failed. Ensure user exists before creating session. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === '23514') {
+      throw new Error(`Invalid session parameters: Check constraints failed (e.g., totalUrls, chunkSize, maxRetries must be positive). Context: ${JSON.stringify(context)}`);
+    } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      throw new Error(`Database connection failed while creating extraction session. Please retry. Original error: ${error.message}. Context: ${JSON.stringify(context)}`);
+    } else {
+      throw new Error(`Failed to create extraction session: ${error.message}. Context: ${JSON.stringify(context)}`);
+    }
+  }
 };
 
 /**
@@ -79,26 +104,64 @@ export const createUrlExtractions = async (sessionId, urls, chunkNumber = 1) => 
     return [];
   }
 
-  // Prepare batch insert
-  const values = [];
-  const placeholders = [];
-  let paramIndex = 1;
+  if (!Array.isArray(urls)) {
+    throw new Error(`Invalid URLs format: Expected array, got ${typeof urls}. Please provide URLs as an array.`);
+  }
 
-  urls.forEach((url, index) => {
-    placeholders.push(
-      `($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`
-    );
-    values.push(sessionId, url, chunkNumber, index + 1);
-  });
+  if (!sessionId || isNaN(parseInt(sessionId))) {
+    throw new Error(`Invalid session ID: Expected numeric session ID, got ${sessionId}. Ensure session exists before creating URL extractions.`);
+  }
 
-  const insertQuery = `
-    INSERT INTO url_extractions (session_id, url, chunk_number, sequence_number)
-    VALUES ${placeholders.join(', ')}
-    RETURNING *
-  `;
+  try {
+    // Validate URLs
+    const invalidUrls = urls.filter(url => !url || typeof url !== 'string' || url.trim() === '');
+    if (invalidUrls.length > 0) {
+      throw new Error(`Invalid URLs detected: ${invalidUrls.length} empty or invalid URLs found. All URLs must be non-empty strings.`);
+    }
 
-  const result = await query(insertQuery, values);
-  return result.rows;
+    // Prepare batch insert
+    const values = [];
+    const placeholders = [];
+    let paramIndex = 1;
+
+    urls.forEach((url, index) => {
+      placeholders.push(
+        `($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`
+      );
+      values.push(sessionId, url.trim(), chunkNumber, index + 1);
+    });
+
+    const insertQuery = `
+      INSERT INTO url_extractions (session_id, url, chunk_number, sequence_number)
+      VALUES ${placeholders.join(', ')}
+      RETURNING *
+    `;
+
+    const result = await query(insertQuery, values);
+    return result.rows;
+  } catch (error) {
+    const context = {
+      operation: 'createUrlExtractions',
+      sessionId,
+      urlCount: urls.length,
+      chunkNumber,
+      sampleUrls: urls.slice(0, 3) // Show first 3 URLs for debugging
+    };
+
+    if (error.message.includes('Invalid URLs') || error.message.includes('Invalid session ID')) {
+      throw error; // Re-throw our custom validation errors
+    } else if (error.code === '23503') {
+      throw new Error(`Foreign key constraint violation: Session ID ${sessionId} does not exist. Ensure the extraction session is created before adding URLs. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === '23505') {
+      throw new Error(`Duplicate URL extraction detected: One or more URLs in this batch already exist for session ${sessionId} with the same chunk/sequence numbers. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === '22001') {
+      throw new Error(`Data too long: One or more URLs exceed the maximum length limit. Check URL lengths and database schema constraints. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      throw new Error(`Database connection failed while creating URL extractions. Please retry. Original error: ${error.message}. Context: ${JSON.stringify(context)}`);
+    } else {
+      throw new Error(`Failed to create URL extractions: ${error.message}. Context: ${JSON.stringify(context)}`);
+    }
+  }
 };
 
 /**
@@ -217,36 +280,54 @@ export const getUserSessions = async (userId, options = {}) => {
  * Get detailed session information with URL extractions
  */
 export const getSessionDetails = async (sessionId, userId) => {
-  // Get session information
-  const sessionQuery = `
-    SELECT * FROM session_statistics 
-    WHERE id = $1 AND user_id = $2
-  `;
+  try {
+    // Get session information
+    const sessionQuery = `
+      SELECT * FROM session_statistics 
+      WHERE id = $1 AND user_id = $2
+    `;
 
-  const sessionResult = await query(sessionQuery, [sessionId, userId]);
-  
-  if (sessionResult.rows.length === 0) {
-    throw new Error('Session not found or access denied');
+    const sessionResult = await query(sessionQuery, [sessionId, userId]);
+    
+    if (sessionResult.rows.length === 0) {
+      throw new Error(`Session not found: No extraction session with ID ${sessionId} exists for user ${userId}. This could indicate the session was deleted, belongs to another user, or the session ID is invalid.`);
+    }
+
+    // Get URL extractions
+    const extractionsQuery = `
+      SELECT 
+        id, url, chunk_number, sequence_number, status,
+        http_status_code, content_size_bytes, processing_time_ms,
+        error_code, error_message, title, description,
+        images_count, retry_count, created_at, processed_at
+      FROM url_extractions 
+      WHERE session_id = $1
+      ORDER BY chunk_number, sequence_number
+    `;
+
+    const extractionsResult = await query(extractionsQuery, [sessionId]);
+
+    return {
+      session: sessionResult.rows[0],
+      extractions: extractionsResult.rows
+    };
+  } catch (error) {
+    const context = {
+      operation: 'getSessionDetails',
+      sessionId,
+      userId
+    };
+
+    if (error.message.includes('Session not found')) {
+      throw error; // Re-throw our custom error
+    } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      throw new Error(`Database connection timeout while retrieving session ${sessionId}. Please retry. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === '42P01') {
+      throw new Error(`Database schema error: Table 'session_statistics' or 'url_extractions' does not exist. Database migration may be required. Context: ${JSON.stringify(context)}`);
+    } else {
+      throw new Error(`Failed to retrieve session details: ${error.message}. Context: ${JSON.stringify(context)}`);
+    }
   }
-
-  // Get URL extractions
-  const extractionsQuery = `
-    SELECT 
-      id, url, chunk_number, sequence_number, status,
-      http_status_code, content_size_bytes, processing_time_ms,
-      error_code, error_message, title, description,
-      images_count, retry_count, created_at, processed_at
-    FROM url_extractions 
-    WHERE session_id = $1
-    ORDER BY chunk_number, sequence_number
-  `;
-
-  const extractionsResult = await query(extractionsQuery, [sessionId]);
-
-  return {
-    session: sessionResult.rows[0],
-    extractions: extractionsResult.rows
-  };
 };
 
 /**
@@ -312,67 +393,98 @@ export const createRetrySession = async (userId, extractionIds, options = {}) =>
   } = options;
 
   if (!extractionIds || extractionIds.length === 0) {
-    throw new Error('No extraction IDs provided for retry');
+    throw new Error('No extraction IDs provided for retry: extractionIds array is empty or undefined. Please provide valid extraction IDs to retry.');
   }
 
-  // Get details of URLs to retry
-  const urlsQuery = `
-    SELECT ue.id, ue.url, ue.session_id, es.source_url
-    FROM url_extractions ue
-    JOIN extraction_sessions es ON ue.session_id = es.id
-    WHERE ue.id = ANY($1) AND es.user_id = $2 AND ue.status = 'failed'
-  `;
-
-  const urlsResult = await query(urlsQuery, [extractionIds, userId]);
-  
-  if (urlsResult.rows.length === 0) {
-    throw new Error('No retryable URLs found');
+  if (!Array.isArray(extractionIds)) {
+    throw new Error(`Invalid extractionIds format: Expected array, got ${typeof extractionIds}. Please provide extraction IDs as an array.`);
   }
 
-  // Use the source URL from the first extraction
-  const sourceUrl = urlsResult.rows[0].source_url;
+  try {
+    // Get details of URLs to retry
+    const urlsQuery = `
+      SELECT ue.id, ue.url, ue.session_id, es.source_url, ue.error_code, ue.error_message
+      FROM url_extractions ue
+      JOIN extraction_sessions es ON ue.session_id = es.id
+      WHERE ue.id = ANY($1) AND es.user_id = $2 AND ue.status = 'failed'
+    `;
 
-  // Create new retry session
-  const retrySession = await createExtractionSession(userId, sourceUrl, {
-    sessionName,
-    totalUrls: urlsResult.rows.length,
-    chunkSize: 25,
-    maxRetries: 3
-  });
+    const urlsResult = await query(urlsQuery, [extractionIds, userId]);
+    
+    if (urlsResult.rows.length === 0) {
+      throw new Error(`No retryable URLs found: None of the provided extraction IDs [${extractionIds.join(', ')}] correspond to failed extractions for user ${userId}. This could mean: 1) Extraction IDs don't exist, 2) Extractions don't belong to this user, 3) Extractions are not in 'failed' status, or 4) Extractions have already been successfully retried.`);
+    }
 
-  // Create retry records
-  const retryQueries = urlsResult.rows.map((url, index) => ({
-    text: `
-      INSERT INTO extraction_retries (
-        original_extraction_id, retry_session_id, attempt_number,
-        previous_error_code, previous_error_message, retry_strategy
-      )
-      SELECT 
-        $1, $2, COALESCE(MAX(attempt_number), 0) + 1, $3, $4, $5
-      FROM extraction_retries 
-      WHERE original_extraction_id = $1
-    `,
-    params: [
-      url.id,
-      retrySession.id,
-      '', // Will be filled from original extraction
-      '', // Will be filled from original extraction
-      retryStrategy
-    ]
-  }));
+    if (urlsResult.rows.length !== extractionIds.length) {
+      const foundIds = urlsResult.rows.map(row => row.id);
+      const missingIds = extractionIds.filter(id => !foundIds.includes(id));
+      console.warn(`Warning: Some extraction IDs were not found or not retryable: ${missingIds.join(', ')}`);
+    }
 
-  // Create URL extractions for retry
-  const urls = urlsResult.rows.map(row => row.url);
-  const urlExtractions = await createUrlExtractions(retrySession.id, urls);
+    // Use the source URL from the first extraction
+    const sourceUrl = urlsResult.rows[0].source_url;
 
-  // Execute retry record creation in transaction
-  await transaction(retryQueries);
+    // Create new retry session
+    const retrySession = await createExtractionSession(userId, sourceUrl, {
+      sessionName,
+      totalUrls: urlsResult.rows.length,
+      chunkSize: 25,
+      maxRetries: 3
+    });
 
-  return {
-    session: retrySession,
-    extractions: urlExtractions,
-    originalExtractions: urlsResult.rows
-  };
+    // Create retry records with actual error information
+    const retryQueries = urlsResult.rows.map((url, index) => ({
+      text: `
+        INSERT INTO extraction_retries (
+          original_extraction_id, retry_session_id, attempt_number,
+          previous_error_code, previous_error_message, retry_strategy
+        )
+        SELECT 
+          $1, $2, COALESCE(MAX(attempt_number), 0) + 1, $3, $4, $5
+        FROM extraction_retries 
+        WHERE original_extraction_id = $1
+      `,
+      params: [
+        url.id,
+        retrySession.id,
+        url.error_code || 'UNKNOWN_ERROR',
+        url.error_message || 'No error message available',
+        retryStrategy
+      ]
+    }));
+
+    // Create URL extractions for retry
+    const urls = urlsResult.rows.map(row => row.url);
+    const urlExtractions = await createUrlExtractions(retrySession.id, urls);
+
+    // Execute retry record creation in transaction
+    await transaction(retryQueries);
+
+    return {
+      session: retrySession,
+      extractions: urlExtractions,
+      originalExtractions: urlsResult.rows
+    };
+  } catch (error) {
+    const context = {
+      operation: 'createRetrySession',
+      userId,
+      extractionIds,
+      sessionName,
+      retryStrategy,
+      extractionCount: extractionIds.length
+    };
+
+    if (error.message.includes('No retryable URLs found') || error.message.includes('No extraction IDs provided')) {
+      throw error; // Re-throw our custom validation errors
+    } else if (error.code === '23503') {
+      throw new Error(`Database foreign key constraint failed while creating retry session. This might indicate invalid user ID ${userId} or corrupted extraction references. Context: ${JSON.stringify(context)}`);
+    } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      throw new Error(`Database connection failed while creating retry session. Please retry operation. Original error: ${error.message}. Context: ${JSON.stringify(context)}`);
+    } else {
+      throw new Error(`Failed to create retry session: ${error.message}. Context: ${JSON.stringify(context)}`);
+    }
+  }
 };
 
 /**
