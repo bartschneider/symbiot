@@ -11,19 +11,19 @@ let pool = null;
 // Database configuration
 const dbConfig = {
   host: config.database?.host || process.env.DB_HOST || 'localhost',
-  port: config.database?.port || process.env.DB_PORT || 5433,
+  port: parseInt(config.database?.port || process.env.DB_PORT) || 5433,
   database: config.database?.name || process.env.DB_NAME || 'firecrawl_db',
   user: config.database?.user || process.env.DB_USER || 'firecrawl_user',
   password: config.database?.password || process.env.DB_PASSWORD || 'firecrawl_password',
   
   // Connection pool settings
-  min: config.database?.pool?.min || process.env.DATABASE_POOL_MIN || 2,
-  max: config.database?.pool?.max || process.env.DATABASE_POOL_MAX || 10,
-  idleTimeoutMillis: config.database?.pool?.idleTimeout || process.env.DATABASE_POOL_IDLE_TIMEOUT || 30000,
-  connectionTimeoutMillis: config.database?.connectionTimeout || process.env.DATABASE_CONNECTION_TIMEOUT || 60000,
+  min: parseInt(config.database?.pool?.min || process.env.DATABASE_POOL_MIN) || 2,
+  max: parseInt(config.database?.pool?.max || process.env.DATABASE_POOL_MAX) || 10,
+  idleTimeoutMillis: parseInt(config.database?.pool?.idleTimeout || process.env.DATABASE_POOL_IDLE_TIMEOUT) || 30000,
+  connectionTimeoutMillis: parseInt(config.database?.connectionTimeout || process.env.DATABASE_CONNECTION_TIMEOUT) || 60000,
   
   // Query settings
-  query_timeout: config.database?.queryTimeout || process.env.DATABASE_QUERY_TIMEOUT || 30000,
+  query_timeout: parseInt(config.database?.queryTimeout || process.env.DATABASE_QUERY_TIMEOUT) || 30000,
   
   // SSL settings (disabled for development)
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -34,6 +34,47 @@ const dbConfig = {
   // Error handling
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
+};
+
+/**
+ * Connect to database with retry logic and exponential backoff
+ */
+export const connectWithRetry = async (maxRetries = 5, baseDelay = 1000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Database connection attempt ${attempt}/${maxRetries}...`);
+      pool = new Pool(dbConfig);
+      
+      // Test connection immediately
+      const client = await pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      
+      console.log(`✅ Database connection successful on attempt ${attempt}`);
+      return pool;
+    } catch (error) {
+      console.error(`❌ Database connection attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to connect to database after ${maxRetries} attempts: ${error.message}`);
+      }
+      
+      // Close any partial connection
+      if (pool) {
+        try {
+          await pool.end();
+        } catch (e) {
+          // Ignore errors when closing failed connections
+        }
+        pool = null;
+      }
+      
+      // Exponential backoff with jitter
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+      console.log(`⏳ Retrying in ${Math.round(delay)}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
 };
 
 /**
@@ -49,7 +90,8 @@ export const initDatabase = async () => {
     console.log('Initializing database connection pool...');
     console.log(`Connecting to: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
     
-    pool = new Pool(dbConfig);
+    // Use retry logic for initial connection
+    await connectWithRetry();
     
     // Handle pool events
     pool.on('connect', (client) => {
@@ -59,11 +101,14 @@ export const initDatabase = async () => {
     pool.on('error', (err, client) => {
       console.error('Database pool error:', err);
       
-      // Attempt to recreate pool on error
+      // Attempt to recreate pool with retry logic on critical errors
       if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
-        console.log('Attempting to recreate database pool...');
+        console.log('Attempting to recreate database pool with retry logic...');
         setTimeout(() => {
-          initDatabase().catch(console.error);
+          pool = null;
+          initDatabase().catch(error => {
+            console.error('Failed to recreate database pool:', error.message);
+          });
         }, 5000);
       }
     });
@@ -72,7 +117,7 @@ export const initDatabase = async () => {
       console.log(`Database client removed (PID: ${client.processID})`);
     });
     
-    // Test connection
+    // Get additional connection info
     const client = await pool.connect();
     const result = await client.query('SELECT NOW() as connected_at, version() as version');
     client.release();
@@ -321,5 +366,6 @@ export default {
   getStatistics,
   escapeIdentifier,
   buildWhereClause,
-  buildPaginationClause
+  buildPaginationClause,
+  connectWithRetry
 };
