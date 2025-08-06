@@ -6,30 +6,38 @@ import { config } from '../config/config.js';
 
 /**
  * CORS Configuration
- * Configure Cross-Origin Resource Sharing
+ * Configure Cross-Origin Resource Sharing with dynamic origin support
  */
 export const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    // In production, replace with actual allowed origins
-    const allowedOrigins = [
+    // Get allowed origins from environment variable or use defaults
+    const corsOriginEnv = process.env.CORS_ORIGIN || '';
+    const envOrigins = corsOriginEnv ? corsOriginEnv.split(',').map(url => url.trim()) : [];
+    
+    // Default allowed origins for development
+    const defaultOrigins = [
       'http://localhost:3030',
-      'http://localhost:3001',
+      'http://localhost:3001', 
       'http://localhost:5173',
       'https://firecrawl.dev',
-      // Add your frontend domains here
     ];
     
+    // Use environment origins if provided, otherwise use defaults
+    const allowedOrigins = envOrigins.length > 0 ? envOrigins : defaultOrigins;
+    
     if (config.isDevelopment()) {
-      // Allow all origins in development
+      // In development, allow all origins for flexibility
       return callback(null, true);
     }
     
+    // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`CORS: Origin '${origin}' not allowed. Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
