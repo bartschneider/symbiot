@@ -80,12 +80,12 @@ The service will be available at `http://localhost:3001`
 # Register a new user
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "password123"}'
+  -d '{"username": "testuser", "password": "SecureP@ssw0rd!"}'
 
 # Login
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "password123"}'
+  -d '{"username": "testuser", "password": "SecureP@ssw0rd!"}'
 ```
 
 ### 2. Convert URL to Markdown
