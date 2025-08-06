@@ -2,10 +2,17 @@
 -- This script sets up the complete schema for tracking extraction sessions and URL processing
 
 -- Create database user with appropriate privileges
-CREATE USER IF NOT EXISTS firecrawl_user WITH PASSWORD 'firecrawl_password';
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = 'firecrawl_user') THEN
+        CREATE USER firecrawl_user WITH PASSWORD 'firecrawl_password';
+    END IF;
+END
+$$;
 
 -- Create the database (if not exists)
-CREATE DATABASE IF NOT EXISTS firecrawl_db OWNER firecrawl_user;
+SELECT 'CREATE DATABASE firecrawl_db OWNER firecrawl_user'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'firecrawl_db')\gexec
 
 -- Grant necessary privileges
 GRANT ALL PRIVILEGES ON DATABASE firecrawl_db TO firecrawl_user;
