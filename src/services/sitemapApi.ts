@@ -11,7 +11,7 @@ import {
 } from '@/types/sitemap';
 
 // Configuration
-const API_BASE_URL = 'http://localhost:3001'; // Firecrawl service port
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 // Demo credentials for development
