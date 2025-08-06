@@ -50,6 +50,11 @@ export const config = {
   // Database Configuration
   database: {
     url: process.env.DATABASE_URL || 'postgresql://firecrawl_user:secure_password_change_me@localhost:5432/firecrawl_db',
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || '5433',
+    name: process.env.DB_NAME || 'firecrawl_db',
+    user: process.env.DB_USER || 'firecrawl_user',
+    password: process.env.DB_PASSWORD || 'firecrawl_password',
     pool: {
       min: parseInt(process.env.DATABASE_POOL_MIN) || 2,
       max: parseInt(process.env.DATABASE_POOL_MAX) || 10,
