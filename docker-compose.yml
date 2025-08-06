@@ -4,6 +4,31 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database for extraction history
+  postgres:
+    image: postgres:15-alpine
+    container_name: firecrawl-postgres
+    platform: linux/arm64
+    environment:
+      POSTGRES_DB: firecrawl_db
+      POSTGRES_USER: firecrawl_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-firecrawl_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./firecrawl-service/database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sitemap-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firecrawl_user -d firecrawl_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   # Firecrawl Backend Service
   firecrawl-backend:
     image: firecrawl-service:latest
@@ -14,7 +39,7 @@ services:
       - PORT=3001
       - JWT_SECRET=${JWT_SECRET:-secure-jwt-secret-change-in-production}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
-      - CORS_ORIGIN=http://localhost:$FRONTEND_PORT
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3030,http://localhost:5173}
       - RATE_LIMIT_WINDOW_MS=900000
       - RATE_LIMIT_MAX_REQUESTS=100
       - CACHE_TTL_SECONDS=3600
@@ -22,6 +47,13 @@ services:
       - PLAYWRIGHT_MAX_CONCURRENT=3
       - CONTENT_MAX_SIZE_MB=10
       - CONTENT_MAX_TIMEOUT_MS=60000
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=firecrawl_db
+      - DB_USER=firecrawl_user
+      - DB_PASSWORD=${DB_PASSWORD:-firecrawl_password}
+      - REQUIRE_DATABASE=true
       # Playwright ARM64 configuration
       - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true
       - PLAYWRIGHT_BROWSERS_PATH=/usr/bin
@@ -33,6 +65,9 @@ services:
       - firecrawl_temp:/app/temp
     networks:
       - sitemap-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -116,6 +151,8 @@ networks:
 
 # Volumes
 volumes:
+  postgres_data:
+    driver: local
   firecrawl_logs:
     driver: local
   firecrawl_temp:
