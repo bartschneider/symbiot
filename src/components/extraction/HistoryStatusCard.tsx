@@ -179,7 +179,7 @@ export function HistoryStatusCard({
   onViewSession,
   className
 }: HistoryStatusCardProps) {
-  const { sessions, loadSessions, formatLastExtracted } = historyHook;
+  const { sessions, loadSessions } = historyHook;
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   useEffect(() => {

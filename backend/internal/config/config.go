@@ -96,7 +96,7 @@ func New() *Config {
 			TTL:      parseDuration(getEnv("CACHE_TTL", "300s")),
 		},
 		Firecrawl: FirecrawlConfig{
-			BaseURL:             getEnv("FIRECRAWL_BASE_URL", "http://firecrawl-service:3001"),
+			BaseURL:             getEnv("FIRECRAWL_BASE_URL", "http://firecrawl-service-dev:3001"),
 			APIKey:              getEnv("FIRECRAWL_API_KEY", ""),
 			TimeoutSeconds:      getEnvAsInt("FIRECRAWL_TIMEOUT_SECONDS", 30),
 			MaxRetries:          getEnvAsInt("FIRECRAWL_MAX_RETRIES", 3),

@@ -96,6 +96,16 @@ func NewRouter(cfg *config.Config, db *storage.Database) *gin.Engine {
 			sitemap.GET("/history", sitemapHandler.GetExtractionHistory)
 		}
 
+		// Extraction history proxy endpoints (proxy to Firecrawl service)
+		extractionHistory := v1.Group("/extraction-history")
+		{
+			extractionHistory.GET("/check", sitemapHandler.ProxyExtractionHistoryCheck)
+			extractionHistory.GET("/sessions", sitemapHandler.ProxyExtractionHistorySessions)
+			extractionHistory.GET("/sessions/:sessionId", sitemapHandler.ProxyExtractionHistorySessionDetails)
+			extractionHistory.GET("/retryable", sitemapHandler.ProxyExtractionHistoryRetryable)
+			extractionHistory.POST("/retry", sitemapHandler.ProxyExtractionHistoryRetry)
+		}
+
 		// Sample data endpoints for development
 		samples := v1.Group("/samples")
 		{

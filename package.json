@@ -1,7 +1,7 @@
 {
   "name": "synthora-react",
   "version": "1.0.0",
-  "description": "Data-Noir Minimalist React Application - Advanced analytics and visualization solutions",
+  "description": "Web Content Extraction Platform - Sitemap discovery and content scraping with Firecrawl",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,16 +23,11 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "axios": "^1.6.2",
-    "chart.js": "^4.4.0",
     "clsx": "^2.0.0",
     "framer-motion": "^10.18.0",
     "lucide-react": "^0.294.0",
     "react": "^18.3.1",
-    "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.20.1",
-    "recharts": "^2.15.4",
-    "zustand": "^4.4.7"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@emotion/babel-plugin": "^11.13.5",
@@ -53,11 +48,11 @@
   "keywords": [
     "react",
     "typescript",
-    "data-visualization",
-    "analytics",
-    "minimalist-design",
-    "charts",
-    "text-analysis",
+    "web-scraping",
+    "content-extraction",
+    "sitemap-analysis",
+    "firecrawl",
+    "playwright",
     "go-backend",
     "full-stack"
   ],

@@ -12,10 +12,10 @@ let pool = null;
 const dbConfig = {
   // Support both docker and local development
   host: config.database?.host || process.env.DB_HOST || 'localhost',
-  port: parseInt(config.database?.port || process.env.DB_PORT) || 5433,
-  database: config.database?.name || process.env.DB_NAME || 'windchaser_db',
-  user: config.database?.user || process.env.DB_USER || 'windchaser_user',
-  password: config.database?.password || process.env.DB_PASSWORD || 'windchaser_password',
+  port: parseInt(config.database?.port || process.env.DB_PORT) || 5432,
+  database: config.database?.name || process.env.DB_NAME || 'synthora_dev',
+  user: config.database?.user || process.env.DB_USER || 'postgres',
+  password: config.database?.password || process.env.DB_PASSWORD || 'password',
   
   // Connection pool settings
   min: parseInt(config.database?.pool?.min || process.env.DATABASE_POOL_MIN) || 2,

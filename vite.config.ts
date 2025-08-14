@@ -16,7 +16,6 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@/components': resolve(__dirname, './src/components'),
-      '@/pages': resolve(__dirname, './src/pages'),
       '@/styles': resolve(__dirname, './src/styles'),
       '@/utils': resolve(__dirname, './src/utils'),
       '@/types': resolve(__dirname, './src/types'),
@@ -35,14 +34,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          charts: ['recharts', 'chart.js', 'react-chartjs-2'],
           animations: ['framer-motion'],
         },
       },
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'framer-motion'],
+    include: ['react', 'react-dom', 'framer-motion'],
   },
 })

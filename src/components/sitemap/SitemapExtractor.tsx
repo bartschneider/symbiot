@@ -235,84 +235,6 @@ const ButtonGroup = styled.div`
   }
 `;
 
-const ExtractionProgressCard = styled(Card)`
-  padding: ${theme.spacing.xl};
-  text-align: center;
-  background: ${theme.colors.bg.primary};
-  border: 2px solid ${theme.colors.accent}40;
-`;
-
-const ProgressHeader = styled.h3`
-  font-size: ${theme.typography.fontSize.xl};
-  font-weight: ${theme.typography.fontWeight.bold};
-  color: ${theme.colors.text.primary};
-  margin: 0 0 ${theme.spacing.lg} 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${theme.spacing.sm};
-`;
-
-const ProgressSpinner = styled.div`
-  width: 20px;
-  height: 20px;
-  border: 2px solid ${theme.colors.accent}40;
-  border-top: 2px solid ${theme.colors.accent};
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-
-const ProgressStatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: ${theme.spacing.md};
-  margin: ${theme.spacing.lg} 0;
-`;
-
-const ProgressStat = styled.div`
-  background: ${theme.colors.bg.secondary};
-  padding: ${theme.spacing.md};
-  border-radius: ${theme.layout.borderRadius.sm};
-  border: 1px solid ${theme.colors.border};
-`;
-
-const ProgressStatValue = styled.div`
-  font-size: ${theme.typography.fontSize.lg};
-  font-weight: ${theme.typography.fontWeight.bold};
-  color: ${theme.colors.accent};
-  margin-bottom: ${theme.spacing.xs};
-`;
-
-const ProgressStatLabel = styled.div`
-  font-size: ${theme.typography.fontSize.xs};
-  color: ${theme.colors.text.secondary};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-`;
-
-const CurrentProcessingUrl = styled.div`
-  background: ${theme.colors.bg.secondary};
-  padding: ${theme.spacing.md};
-  border-radius: ${theme.layout.borderRadius.sm};
-  border: 1px solid ${theme.colors.border};
-  margin: ${theme.spacing.lg} 0;
-  font-family: monospace;
-  font-size: ${theme.typography.fontSize.sm};
-  color: ${theme.colors.text.secondary};
-  word-break: break-all;
-`;
-
-const ProgressActions = styled.div`
-  display: flex;
-  gap: ${theme.spacing.md};
-  justify-content: center;
-  margin-top: ${theme.spacing.lg};
-`;
 
 const CATEGORY_INFO = {
   internal: { icon: '🏠', color: '#68FFC9', label: 'Internal Links' },
@@ -361,7 +283,7 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
       setShowDecisionPrompt(false);
       // Proceed with extraction based on decision
       if (decision.action !== 'skip') {
-        handleContentExtraction(decision);
+        handleContentExtraction();
       }
     },
     onError: (error) => {
@@ -442,7 +364,7 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
   }, [historyHook]);
 
   // Handle content extraction
-  const handleContentExtraction = useCallback(async (decision?: UserDecision) => {
+  const handleContentExtraction = useCallback(async () => {
     const selectedUrls = selection.selectedUrls;
     console.log('Content extraction called with URLs:', selectedUrls.length, selectedUrls);
     if (selectedUrls.length === 0) {
@@ -500,7 +422,7 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
     return (
       <SessionTracker
         extractionHook={contentExtraction}
-        userDecision={historyHook.historyState.decision}
+        userDecision={historyHook.historyState.decision || undefined}
         sessionName={`Extraction - ${new Date().toLocaleDateString()}`}
       />
     );
@@ -774,7 +696,7 @@ export function SitemapExtractor({ className }: SitemapExtractorProps) {
           <HistoryDecisionPrompt
             history={currentHistory}
             sourceUrl={url.trim()}
-            onDecision={historyHook.makeDecision}
+            onDecision={(decision) => historyHook.makeDecision(decision.action, decision.sourceUrl)}
             historyHook={historyHook}
           />
         )}

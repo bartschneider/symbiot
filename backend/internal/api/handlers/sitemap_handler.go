@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -472,4 +475,106 @@ func calculateProgressPercent(processed, total int) float64 {
 		return 0
 	}
 	return float64(processed) / float64(total) * 100
+}
+
+// EXTRACTION HISTORY PROXY ENDPOINTS
+// These endpoints proxy requests to the Firecrawl service for extraction history functionality
+
+// ProxyExtractionHistoryCheck proxies the extraction history check request to Firecrawl service
+func (h *SitemapHandler) ProxyExtractionHistoryCheck(c *gin.Context) {
+	h.proxyToFirecrawl(c, "GET", "/api/extraction-history/check")
+}
+
+// ProxyExtractionHistorySessions proxies the extraction history sessions request to Firecrawl service
+func (h *SitemapHandler) ProxyExtractionHistorySessions(c *gin.Context) {
+	h.proxyToFirecrawl(c, "GET", "/api/extraction-history/sessions")
+}
+
+// ProxyExtractionHistorySessionDetails proxies the extraction history session details request to Firecrawl service
+func (h *SitemapHandler) ProxyExtractionHistorySessionDetails(c *gin.Context) {
+	sessionID := c.Param("sessionId")
+	endpoint := "/api/extraction-history/sessions/" + sessionID
+	h.proxyToFirecrawl(c, "GET", endpoint)
+}
+
+// ProxyExtractionHistoryRetryable proxies the extraction history retryable request to Firecrawl service
+func (h *SitemapHandler) ProxyExtractionHistoryRetryable(c *gin.Context) {
+	h.proxyToFirecrawl(c, "GET", "/api/extraction-history/retryable")
+}
+
+// ProxyExtractionHistoryRetry proxies the extraction history retry request to Firecrawl service
+func (h *SitemapHandler) ProxyExtractionHistoryRetry(c *gin.Context) {
+	h.proxyToFirecrawl(c, "POST", "/api/extraction-history/retry")
+}
+
+// proxyToFirecrawl is a helper method to proxy HTTP requests to the Firecrawl service
+func (h *SitemapHandler) proxyToFirecrawl(c *gin.Context, method, endpoint string) {
+	// Build the full URL to the Firecrawl service
+	firecrawlURL := fmt.Sprintf("%s%s", h.cfg.Firecrawl.BaseURL, endpoint)
+	
+	// Forward query parameters
+	if c.Request.URL.RawQuery != "" {
+		firecrawlURL += "?" + c.Request.URL.RawQuery
+	}
+
+	// Read request body for POST requests
+	var body io.Reader
+	if method == "POST" && c.Request.Body != nil {
+		bodyBytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Failed to read request body",
+				"details": err.Error(),
+			})
+			return
+		}
+		body = bytes.NewReader(bodyBytes)
+	}
+
+	// Create the proxy request
+	req, err := http.NewRequestWithContext(c.Request.Context(), method, firecrawlURL, body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create proxy request",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Copy headers (except Host)
+	for name, values := range c.Request.Header {
+		if name != "Host" {
+			for _, value := range values {
+				req.Header.Add(name, value)
+			}
+		}
+	}
+
+	// Add authentication if configured
+	if h.cfg.Firecrawl.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+h.cfg.Firecrawl.APIKey)
+	}
+
+	// Make the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Failed to connect to Firecrawl service",
+			"details": err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for name, values := range resp.Header {
+		for _, value := range values {
+			c.Header(name, value)
+		}
+	}
+
+	// Copy response body
+	c.Status(resp.StatusCode)
+	io.Copy(c.Writer, resp.Body)
 }

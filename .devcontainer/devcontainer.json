@@ -1,0 +1,83 @@
+{
+  "name": "Synthora Analytics Development",
+  "dockerComposeFile": "../docker-compose.dev.yml",
+  "service": "synthora-frontend-dev",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.21"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true,
+      "azureDnsAutoDetection": true,
+      "installDockerBuildx": true
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        },
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true,
+        "go.gopath": "/go",
+        "go.goroot": "/usr/local/go"
+      },
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss", 
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "golang.go",
+        "ms-vscode.docker",
+        "ms-vscode.vscode-json",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.npm-intellisense",
+        "ms-vscode.vscode-docker"
+      ]
+    }
+  },
+
+  "forwardPorts": [5173, 8080, 3001, 5432, 6379],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Go Backend API", 
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Firecrawl Service",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL Database",
+      "onAutoForward": "silent"
+    },
+    "6379": {
+      "label": "Redis Cache",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "postCreateCommand": "npm install && cd backend && go mod download && cd ../firecrawl-service && npm install",
+  "postStartCommand": "echo 'Development environment is ready!'",
+
+  "remoteUser": "synthora",
+  "containerUser": "synthora"
+}

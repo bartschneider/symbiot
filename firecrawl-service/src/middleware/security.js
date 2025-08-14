@@ -136,10 +136,7 @@ export const createRateLimit = (options = {}) => {
           windowMs
         );
         
-        callback(null, {
-          totalHits: rateLimitData.requestCount,
-          resetTime: rateLimitData.resetTime
-        });
+        callback(null, rateLimitData.requestCount, rateLimitData.resetTime);
       },
       decrement: (key) => {
         // Not implemented for our use case

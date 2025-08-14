@@ -27,6 +27,7 @@ export const theme = {
     fontWeight: {
       light: 300,
       regular: 400,
+      semibold: 600,
       bold: 700,
     },
     fontSize: {

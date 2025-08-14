@@ -250,13 +250,13 @@ export function HistoryDecisionPrompt({
         exit={{ opacity: 0 }}
         onClick={(e) => e.target === e.currentTarget && handleSkip()}
       >
-        <PromptCard
-          as={motion.div}
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
+        <motion.div>
+          <PromptCard
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
           <PromptTitle>URL Previously Extracted</PromptTitle>
           
           <UrlDisplay>{sourceUrl}</UrlDisplay>
@@ -319,7 +319,8 @@ export function HistoryDecisionPrompt({
               Proceed with {selectedAction ? actionOptions.find(o => o.action === selectedAction)?.title : 'Selection'}
             </Button>
           </ButtonRow>
-        </PromptCard>
+          </PromptCard>
+        </motion.div>
       </PromptOverlay>
     </AnimatePresence>
   );

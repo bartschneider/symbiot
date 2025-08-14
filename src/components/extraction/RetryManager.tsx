@@ -5,7 +5,6 @@ import { theme } from '@/styles/theme';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { UseExtractionHistoryReturn } from '@/hooks/useExtractionHistory';
-import { RetryableUrl } from '@/types/sitemap';
 
 interface RetryManagerProps {
   historyHook: UseExtractionHistoryReturn;

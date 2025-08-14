@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { theme } from '@/styles/theme';
 
@@ -37,39 +36,7 @@ const FooterLinks = styled.div`
   }
 `;
 
-const FooterLink = styled(Link)`
-  color: ${theme.colors.text.secondary};
-  text-decoration: none;
-  transition: color ${theme.animation.transition.fast};
-  padding: ${theme.spacing.xs};
 
-  &:hover {
-    color: ${theme.colors.accent};
-  }
-
-  &:focus-visible {
-    outline: 2px solid ${theme.colors.accent};
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-`;
-
-const ExternalLink = styled.a`
-  color: ${theme.colors.text.secondary};
-  text-decoration: none;
-  transition: color ${theme.animation.transition.fast};
-  padding: ${theme.spacing.xs};
-
-  &:hover {
-    color: ${theme.colors.accent};
-  }
-
-  &:focus-visible {
-    outline: 2px solid ${theme.colors.accent};
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-`;
 
 const Copyright = styled.p`
   margin: 0;
@@ -113,20 +80,10 @@ const Footer: React.FC<FooterProps> = ({ className }) => {
     <FooterContainer className={className}>
       <FooterContent>
         <Copyright>
-          © {currentYear} Symbiot. Advanced Data Intelligence.
+          © {currentYear} Synthora. Web Content Extraction Platform.
         </Copyright>
         
         <FooterLinks>
-          <FooterLink to="/privacy" aria-label="Privacy Policy">
-            PRIVACY
-          </FooterLink>
-          <FooterLink to="/terms" aria-label="Terms of Service">
-            TERMS
-          </FooterLink>
-          <FooterLink to="/" aria-label="Portfolio">
-            PORTFOLIO
-          </FooterLink>
-          
           <SocialLinks>
             <SocialIcon
               href="https://github.com"

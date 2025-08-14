@@ -24,6 +24,7 @@ services:
       - DB_NAME=${DB_NAME:-synthora_dev}
       - DB_SSL_MODE=${DB_SSL_MODE:-disable}
       - REDIS_URL=redis-dev:6379
+      - FIRECRAWL_BASE_URL=http://firecrawl-service-dev:3001
     ports:
       - "${BACKEND_PORT:-8081}:8080"
     networks:
@@ -51,7 +52,7 @@ services:
     user: "0:0"
     environment:
       - NODE_ENV=development
-      - VITE_API_BASE_URL=http://backend-dev:8080
+      - VITE_API_BASE_URL=http://localhost:8081/api/v1
       - VITE_APP_NAME=Synthora Analytics (Dev)
       - VITE_DEV_MODE=true
       - HMR_HOST=localhost
@@ -95,10 +96,17 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
+      - DB_HOST=synthora-postgres-dev
+      - DB_PORT=5432
+      - DB_NAME=synthora_dev
+      - DB_USER=postgres
+      - DB_PASSWORD=password
     ports:
       - "3001:3001"
     networks:
       - sitemap-dev-network
+    depends_on:
+      - postgres-dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]

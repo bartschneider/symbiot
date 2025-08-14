@@ -118,6 +118,16 @@ const cardVariants = {
 
 interface MotionCardProps extends Omit<HTMLMotionProps<'div'>, keyof CardProps>, CardProps {}
 
+// Define compound component types
+type CardComponent = React.ForwardRefExoticComponent<MotionCardProps & React.RefAttributes<HTMLDivElement>> & {
+  Content: typeof CardContent;
+  Header: typeof CardHeader;
+  Title: typeof CardTitle;
+  Description: typeof CardDescription;
+  Body: typeof CardBody;
+  Footer: typeof CardFooter;
+};
+
 const Card = forwardRef<HTMLDivElement, MotionCardProps>(
   (
     {
@@ -157,12 +167,13 @@ const Card = forwardRef<HTMLDivElement, MotionCardProps>(
 
 Card.displayName = 'Card';
 
-// Compound components
-Card.Content = CardContent;
-Card.Header = CardHeader;
-Card.Title = CardTitle;
-Card.Description = CardDescription;
-Card.Body = CardBody;
-Card.Footer = CardFooter;
+// Compound components - properly typed
+const CardWithCompounds = Card as CardComponent;
+CardWithCompounds.Content = CardContent;
+CardWithCompounds.Header = CardHeader;
+CardWithCompounds.Title = CardTitle;
+CardWithCompounds.Description = CardDescription;
+CardWithCompounds.Body = CardBody;
+CardWithCompounds.Footer = CardFooter;
 
-export default Card;
+export default CardWithCompounds;

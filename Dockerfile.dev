@@ -36,7 +36,7 @@ EXPOSE 5173
 
 # Set development environment variables
 ENV NODE_ENV=development
-ENV VITE_API_BASE_URL=http://localhost:3001
+ENV VITE_API_BASE_URL=http://localhost:8081/api/v1
 ENV VITE_APP_NAME="Synthora Analytics (Dev)"
 
 # Start development server

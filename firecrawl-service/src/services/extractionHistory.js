@@ -242,11 +242,11 @@ export const getUserSessions = async (userId, options = {}) => {
   const sessionsQuery = `
     SELECT 
       s.*,
-      ROUND(
+      CAST(
         CASE 
-          WHEN s.total_urls > 0 THEN (s.successful_urls::FLOAT / s.total_urls * 100)
+          WHEN s.total_urls > 0 THEN ROUND((s.successful_urls::FLOAT / s.total_urls * 100)::numeric, 2)
           ELSE 0 
-        END, 2
+        END AS FLOAT
       ) AS success_rate_percent
     FROM extraction_sessions s
     ${whereClause}
@@ -554,12 +554,12 @@ export const getAnalytics = async (userId, options = {}) => {
       SUM(total_urls) as total_urls,
       SUM(successful_urls) as successful_urls,
       SUM(failed_urls) as failed_urls,
-      ROUND(AVG(
+      CAST(ROUND(AVG(
         CASE 
           WHEN total_urls > 0 THEN (successful_urls::FLOAT / total_urls * 100)
           ELSE 0 
         END
-      ), 2) as avg_success_rate,
+      )::numeric, 2) AS FLOAT) as avg_success_rate,
       AVG(processing_time_ms) as avg_processing_time
     FROM extraction_sessions
     WHERE user_id = $1 ${dateFilter}
@@ -573,7 +573,7 @@ export const getAnalytics = async (userId, options = {}) => {
     SELECT 
       error_code,
       COUNT(*) as count,
-      ROUND((COUNT(*)::FLOAT / SUM(COUNT(*)) OVER ()) * 100, 2) as percentage
+      CAST(ROUND((COUNT(*)::FLOAT / SUM(COUNT(*)) OVER ()) * 100::numeric, 2) AS FLOAT) as percentage
     FROM url_extractions ue
     JOIN extraction_sessions es ON ue.session_id = es.id
     WHERE es.user_id = $1 AND ue.status = 'failed' AND ue.error_code IS NOT NULL ${dateFilter}
@@ -589,13 +589,13 @@ export const getAnalytics = async (userId, options = {}) => {
       SUM(total_urls) as total_urls_processed,
       SUM(successful_urls) as total_successful,
       SUM(failed_urls) as total_failed,
-      ROUND(
+      CAST(ROUND(
         CASE 
           WHEN SUM(total_urls) > 0 THEN (SUM(successful_urls)::FLOAT / SUM(total_urls) * 100)
           ELSE 0 
-        END, 2
-      ) as overall_success_rate,
-      ROUND(AVG(processing_time_ms), 0) as avg_processing_time,
+        END::numeric, 2
+      ) AS FLOAT) as overall_success_rate,
+      CAST(ROUND(AVG(processing_time_ms)::numeric, 0) AS INTEGER) as avg_processing_time,
       COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_sessions,
       COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_sessions
     FROM extraction_sessions
@@ -670,9 +670,9 @@ export const getUrlPatternStats = async (userId, options = {}) => {
       COUNT(*) as total_extractions,
       COUNT(CASE WHEN status = 'success' THEN 1 END) as successful,
       COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
-      ROUND(
-        COUNT(CASE WHEN status = 'success' THEN 1 END)::FLOAT / COUNT(*) * 100, 2
-      ) as success_rate,
+      CAST(ROUND(
+        COUNT(CASE WHEN status = 'success' THEN 1 END)::FLOAT / COUNT(*) * 100::numeric, 2
+      ) AS FLOAT) as success_rate,
       AVG(processing_time_ms) as avg_processing_time
     FROM url_extractions ue
     JOIN extraction_sessions es ON ue.session_id = es.id

@@ -10,7 +10,7 @@ import {
   ApiError
 } from '@/types/sitemap';
 
-// Configuration
+// Configuration - Direct connection to Firecrawl service (Phase 1 fix)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
@@ -125,7 +125,7 @@ export async function batchExtractContent(
   request: BatchScrapingRequest
 ): Promise<BatchScrapingResult> {
   console.log('Sending batch request:', JSON.stringify(request, null, 2));
-  const response = await apiRequest<BatchScrapingResult['data']>('/api/convert/batch', {
+  const response = await apiRequest<BatchScrapingResult['data']>('/api/sitemap/batch', {
     method: 'POST',
     body: JSON.stringify(request),
   });

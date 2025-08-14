@@ -1,4 +1,3 @@
-import { Outlet } from 'react-router-dom';
 import { Global } from '@emotion/react';
 import styled from '@emotion/styled';
 import { motion } from 'framer-motion';
@@ -6,7 +5,6 @@ import { motion } from 'framer-motion';
 import Header from './Header';
 import Footer from './Footer';
 import { globalStyles, containerStyles } from '@/styles/globalStyles';
-import { theme } from '@/styles/theme';
 
 const LayoutContainer = styled.div`
   ${containerStyles}
@@ -51,9 +49,10 @@ const pageTransition = {
 
 interface LayoutProps {
   className?: string;
+  children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ className }) => {
+const Layout: React.FC<LayoutProps> = ({ className, children }) => {
   return (
     <>
       {/* Global styles */}
@@ -70,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ className }) => {
             variants={pageVariants}
             transition={pageTransition}
           >
-            <Outlet />
+            {children}
           </PageContainer>
         </Main>
         

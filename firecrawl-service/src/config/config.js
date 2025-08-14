@@ -49,12 +49,12 @@ export const config = {
 
   // Database Configuration
   database: {
-    url: process.env.DATABASE_URL || 'postgresql://windchaser_user:secure_password_change_me@localhost:5432/windchaser_db',
+    url: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/synthora_dev',
     host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || '5433',
-    name: process.env.DB_NAME || 'windchaser_db',
-    user: process.env.DB_USER || 'windchaser_user',
-    password: process.env.DB_PASSWORD || 'windchaser_password',
+    port: process.env.DB_PORT || '5432',
+    name: process.env.DB_NAME || 'synthora_dev',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'password',
     pool: {
       min: parseInt(process.env.DATABASE_POOL_MIN) || 2,
       max: parseInt(process.env.DATABASE_POOL_MAX) || 10,

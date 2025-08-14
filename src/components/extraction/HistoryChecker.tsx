@@ -132,9 +132,7 @@ export function HistoryChecker({
 }: HistoryCheckerProps) {
   const { 
     historyState, 
-    checkHistory, 
-    formatLastExtracted, 
-    getStatusColor 
+    checkHistory
   } = historyHook;
 
   // Auto-check history when URL changes
@@ -227,7 +225,7 @@ export function HistoryChecker({
             <DetailRow>
               <DetailLabel>Last Extracted:</DetailLabel>
               <DetailValue>
-                {formatLastExtracted(historyState.history.lastExtracted)}
+                {historyState.history.lastExtracted ? new Date(historyState.history.lastExtracted).toLocaleDateString() : 'N/A'}
               </DetailValue>
             </DetailRow>
             
