@@ -44,53 +44,25 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
-// Chart library specific types
-export interface RechartsDataPoint {
-  name: string;
-  value: number;
-  [key: string]: any;
-}
-
-export interface ChartJsDataset {
-  label: string;
-  data: number[];
-  borderColor?: string;
-  backgroundColor?: string;
-  fill?: boolean;
-  tension?: number;
-}
-
-// Route types for React Router
-export interface RouteConfig {
-  path: string;
-  element: React.ComponentType;
-  children?: RouteConfig[];
-}
-
-// Performance metrics types
-export interface PerformanceMetrics {
-  loadTime: number;
-  renderTime: number;
-  interactionTime: number;
-  memoryUsage?: number;
-}
-
-// Error boundary types
-export interface ErrorInfo {
-  componentStack: string;
-  errorBoundary?: string;
-  eventId?: string;
-}
-
-// Local storage types
-export interface LocalStorageData {
-  theme: 'light' | 'dark';
-  userPreferences: {
-    animationsEnabled: boolean;
-    reducedMotion: boolean;
+// Sitemap types for Phase 1 compatibility
+export interface SitemapRequest {
+  url: string;
+  options?: {
+    maxDepth?: number;
+    includeSubdomains?: boolean;
+    excludePatterns?: string[];
   };
-  analyticsData?: {
-    visitCount: number;
-    lastVisit: string;
+}
+
+export interface SitemapResponse {
+  success: boolean;
+  data?: {
+    urls: string[];
+    metadata: {
+      totalUrls: number;
+      processingTime: number;
+      timestamp: string;
+    };
   };
+  error?: string;
 }
