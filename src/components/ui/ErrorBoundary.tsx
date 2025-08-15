@@ -1,3 +1,4 @@
+'use client';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import styled from '@emotion/styled';
 import { theme } from '@/styles/theme';

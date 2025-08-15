@@ -1,3 +1,4 @@
+'use client';
 import { forwardRef } from 'react';
 import styled from '@emotion/styled';
 import { motion, HTMLMotionProps } from 'framer-motion';
@@ -111,7 +112,7 @@ const cardVariants = {
     y: -8,
     transition: {
       duration: 0.2,
-      ease: 'easeOut',
+      ease: 'easeOut' as const,
     },
   },
 };

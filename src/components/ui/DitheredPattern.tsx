@@ -119,7 +119,7 @@ const DitheredPattern: React.FC<DitheredPatternProps> = ({
     duration: 8,
     repeat: Infinity,
     repeatType: 'reverse' as const,
-    ease: 'easeInOut',
+    ease: 'easeInOut' as const,
   };
 
   const staticProps = {

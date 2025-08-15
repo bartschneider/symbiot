@@ -9,6 +9,7 @@ export const theme = {
     text: {
       primary: '#ffffff',
       secondary: '#a8b2b8',
+      tertiary: '#6b7280',
     },
     border: '#2a2d30',
     hover: 'rgba(104, 255, 201, 0.1)',
@@ -27,6 +28,7 @@ export const theme = {
     fontWeight: {
       light: 300,
       regular: 400,
+      medium: 500,
       semibold: 600,
       bold: 700,
     },

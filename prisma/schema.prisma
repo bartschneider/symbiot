@@ -1,0 +1,149 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-arm64-openssl-3.0.x", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExtractionSession {
+  id               String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String          @map("user_id") @db.VarChar(255)
+  sessionName      String?         @map("session_name") @db.VarChar(500)
+  sourceUrl        String          @map("source_url")
+  totalUrls        Int             @default(0) @map("total_urls")
+  successfulUrls   Int             @default(0) @map("successful_urls")
+  failedUrls       Int             @default(0) @map("failed_urls")
+  processingTimeMs BigInt?         @map("processing_time_ms")
+  status           String          @default("pending") @db.VarChar(50)
+  errorMessage     String?         @map("error_message")
+  chunkSize        Int?            @default(25) @map("chunk_size")
+  maxRetries       Int?            @default(3) @map("max_retries")
+  createdAt        DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt        DateTime?       @map("started_at") @db.Timestamptz(6)
+  completedAt      DateTime?       @map("completed_at") @db.Timestamptz(6)
+  updatedAt        DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  urlExtractions   UrlExtraction[]
+
+  @@map("extraction_sessions")
+}
+
+model UrlExtraction {
+  id               String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sessionId        String            @map("session_id") @db.Uuid
+  url              String
+  chunkNumber      Int               @default(1) @map("chunk_number")
+  sequenceNumber   Int               @default(1) @map("sequence_number")
+  status           String            @default("pending") @db.VarChar(50)
+  httpStatusCode   Int?              @map("http_status_code")
+  contentSizeBytes BigInt?           @map("content_size_bytes")
+  processingTimeMs Int?              @map("processing_time_ms")
+  errorCode        String?           @map("error_code") @db.VarChar(100)
+  errorMessage     String?           @map("error_message")
+  markdownContent  String?           @map("markdown_content")
+  title            String?           @db.VarChar(1000)
+  description      String?
+  imagesCount      Int?              @default(0) @map("images_count")
+  retryCount       Int?              @default(0) @map("retry_count")
+  lastRetryAt      DateTime?         @map("last_retry_at") @db.Timestamptz(6)
+  createdAt        DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt      DateTime?         @map("processed_at") @db.Timestamptz(6)
+  updatedAt        DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  session          ExtractionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("url_extractions")
+}
+
+model chart_data_points {
+  id         Int       @id @default(autoincrement())
+  x          Float
+  y          Float
+  label      String?   @db.VarChar(255)
+  timestamp  DateTime? @default(now()) @db.Timestamptz(6)
+  dataset_id Int
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  datasets   datasets  @relation(fields: [dataset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([dataset_id], map: "idx_chart_data_points_dataset_id")
+  @@index([timestamp], map: "idx_chart_data_points_timestamp")
+  @@index([x], map: "idx_chart_data_points_x")
+}
+
+model datasets {
+  id                Int                 @id @default(autoincrement())
+  name              String              @db.VarChar(255)
+  description       String?
+  type              String              @db.VarChar(100)
+  source            String?             @db.VarChar(255)
+  metadata          Json?               @default("{}")
+  is_public         Boolean?            @default(true)
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  chart_data_points chart_data_points[]
+
+  @@index([name], map: "idx_datasets_name")
+  @@index([is_public], map: "idx_datasets_public")
+  @@index([type], map: "idx_datasets_type")
+}
+
+model entities {
+  id            Int           @id @default(autoincrement())
+  analysis_id   Int
+  text          String        @db.VarChar(500)
+  type          String        @db.VarChar(50)
+  confidence    Float         @default(0)
+  start_pos     Int?          @default(0)
+  end_pos       Int?          @default(0)
+  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  text_analyses text_analyses @relation(fields: [analysis_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([analysis_id], map: "idx_entities_analysis_id")
+  @@index([confidence(sort: Desc)], map: "idx_entities_confidence")
+  @@index([text], map: "idx_entities_text")
+  @@index([type], map: "idx_entities_type")
+}
+
+model keywords {
+  id            Int           @id @default(autoincrement())
+  analysis_id   Int
+  word          String        @db.VarChar(255)
+  frequency     Int           @default(1)
+  relevance     Float         @default(0)
+  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  text_analyses text_analyses @relation(fields: [analysis_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([analysis_id], map: "idx_keywords_analysis_id")
+  @@index([frequency(sort: Desc)], map: "idx_keywords_frequency")
+  @@index([word], map: "idx_keywords_word")
+}
+
+model schema_migrations {
+  version BigInt  @id
+  dirty   Boolean
+}
+
+model text_analyses {
+  id                   Int        @id @default(autoincrement())
+  text                 String
+  language             String?    @default("en") @db.VarChar(10)
+  sentiment_score      Float?     @default(0)
+  sentiment_label      String?    @default("neutral") @db.VarChar(20)
+  sentiment_confidence Float?     @default(0)
+  readability_score    Float?     @default(0)
+  readability_level    String?    @default("Standard") @db.VarChar(50)
+  metadata             Json?      @default("{}")
+  is_public            Boolean?   @default(false)
+  created_at           DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?  @default(now()) @db.Timestamptz(6)
+  entities             entities[]
+  keywords             keywords[]
+
+  @@index([created_at], map: "idx_text_analyses_created_at")
+  @@index([language], map: "idx_text_analyses_language")
+  @@index([is_public], map: "idx_text_analyses_public")
+  @@index([sentiment_label], map: "idx_text_analyses_sentiment_label")
+}

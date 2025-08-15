@@ -1,0 +1,14 @@
+{
+  "/api/extraction-history/check/route": "app/api/extraction-history/check/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/extraction-history/sessions/route": "app/api/extraction-history/sessions/route.js",
+  "/api/health/route": "app/api/health/route.js",
+  "/api/info/route": "app/api/info/route.js",
+  "/api/convert/route": "app/api/convert/route.js",
+  "/api/sitemap/batch/route": "app/api/sitemap/batch/route.js",
+  "/api/progress/[requestId]/route": "app/api/progress/[requestId]/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/sitemap/discover/route": "app/api/sitemap/discover/route.js",
+  "/api/test-db/route": "app/api/test-db/route.js",
+  "/page": "app/page.js"
+}

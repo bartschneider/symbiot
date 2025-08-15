@@ -1,0 +1,204 @@
+# User Testing Environment - Knowledge Graph Platform
+# Optimized for local user testing with complete validation suite
+
+services:
+  # Next.js Frontend for User Testing
+  frontend-testing:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    platform: linux/arm64
+    container_name: kgp-frontend-testing
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+      - DATABASE_URL=postgresql://postgres:testing-password@postgres-testing:5432/firecrawl_testing
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=us-central1
+      - PORT=5173
+      - HOSTNAME=0.0.0.0
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public:ro
+      - ./package.json:/app/package.json:ro
+      - ./next.config.ts:/app/next.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./prisma:/app/prisma:ro
+    depends_on:
+      firecrawl-service:
+        condition: service_healthy
+    networks:
+      - testing-network
+    restart: unless-stopped
+    command: ["npm", "run", "dev:container"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Firecrawl Service (Production Configuration)
+  firecrawl-service:
+    build:
+      context: ./firecrawl-service
+      dockerfile: Dockerfile.dev
+    platform: linux/arm64
+    container_name: kgp-firecrawl-testing
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=user-testing-jwt-secret-not-for-production
+      - JWT_EXPIRES_IN=24h
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=1000
+      - CACHE_TTL_SECONDS=300
+      - PLAYWRIGHT_TIMEOUT=30000
+      - PLAYWRIGHT_MAX_CONCURRENT=3
+      - DB_HOST=postgres-testing
+      - DB_PORT=5432
+      - DB_NAME=firecrawl_testing
+      - DB_USER=postgres
+      - DB_PASSWORD=testing-password
+      - REDIS_HOST=redis-testing
+      - REDIS_PORT=6379
+      - DEBUG=firecrawl:info
+    ports:
+      - "3001:3001"
+    volumes:
+      - firecrawl_testing_logs:/app/logs
+      - firecrawl_testing_temp:/app/temp
+    depends_on:
+      postgres-testing:
+        condition: service_healthy
+      redis-testing:
+        condition: service_healthy
+    networks:
+      - testing-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # PostgreSQL Database for Testing
+  postgres-testing:
+    image: postgres:15-alpine
+    platform: linux/arm64
+    container_name: kgp-postgres-testing
+    environment:
+      - POSTGRES_DB=firecrawl_testing
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=testing-password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - postgres_testing_data:/var/lib/postgresql/data
+      - ./firecrawl-service/database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - testing-network
+    restart: unless-stopped
+    command: postgres -c max_connections=100 -c shared_buffers=128MB -c effective_cache_size=256MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d firecrawl_testing"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis Cache for Testing
+  redis-testing:
+    image: redis:7-alpine
+    platform: linux/arm64
+    container_name: kgp-redis-testing
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    volumes:
+      - redis_testing_data:/data
+    networks:
+      - testing-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Test Automation Service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    platform: linux/arm64
+    container_name: kgp-test-runner
+    environment:
+      - NODE_ENV=test
+      - FRONTEND_URL=http://frontend-testing:5173
+      - API_URL=http://firecrawl-service:3001
+      - TEST_TIMEOUT=60000
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./test-results:/app/test-results
+      - test_runner_reports:/app/reports
+    depends_on:
+      frontend-testing:
+        condition: service_healthy
+      firecrawl-service:
+        condition: service_healthy
+    networks:
+      - testing-network
+    profiles:
+      - testing
+    command: ["npm", "run", "test:e2e"]
+
+  # Monitoring and Health Dashboard
+  health-dashboard:
+    image: node:20-alpine
+    platform: linux/arm64
+    container_name: kgp-health-dashboard
+    working_dir: /app
+    environment:
+      - SERVICES=frontend-testing:5173,firecrawl-service:3001
+      - CHECK_INTERVAL=30000
+      - DASHBOARD_PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./monitoring:/app:ro
+    depends_on:
+      - frontend-testing
+      - firecrawl-service
+    networks:
+      - testing-network
+    profiles:
+      - monitoring
+    command: ["node", "health-monitor.js"]
+
+# Networks
+networks:
+  testing-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+
+# Volumes
+volumes:
+  postgres_testing_data:
+    driver: local
+  redis_testing_data:
+    driver: local
+  firecrawl_testing_logs:
+    driver: local
+  firecrawl_testing_temp:
+    driver: local
+  test_runner_reports:
+    driver: local

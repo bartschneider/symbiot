@@ -71,7 +71,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const spinTransition = {
     duration: 1,
     repeat: Infinity,
-    ease: 'linear',
+    ease: 'linear' as const,
   };
 
   const ditheredAnimation = {
@@ -82,7 +82,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const ditheredTransition = {
     duration: 2,
     repeat: Infinity,
-    ease: 'easeInOut',
+    ease: 'easeInOut' as const,
   };
 
   return (

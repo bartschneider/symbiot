@@ -1,0 +1,164 @@
+{
+  "testEnvironment": {
+    "name": "Phase 2 Knowledge Graph Platform - Docker Dev Container",
+    "version": "2.0.0",
+    "description": "Comprehensive E2E testing for Next.js migration with Playwright scraping",
+    "containerized": true
+  },
+  
+  "endpoints": {
+    "application": "http://localhost:3002",
+    "api": {
+      "health": "/api/health",
+      "info": "/api/info", 
+      "convert": "/api/convert",
+      "batch": "/api/sitemap/batch",
+      "discover": "/api/sitemap/discover",
+      "history": "/api/extraction-history/sessions",
+      "check": "/api/extraction-history/check",
+      "progress": "/api/progress"
+    },
+    "database": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "synthora_dev",
+      "user": "postgres"
+    }
+  },
+  
+  "testData": {
+    "validUrls": [
+      "https://example.com",
+      "https://httpbin.org/html",
+      "https://jsonplaceholder.typicode.com",
+      "https://httpstat.us/200"
+    ],
+    "invalidUrls": [
+      "not-a-url",
+      "ftp://invalid-protocol.com", 
+      "https://non-existent-domain-xyz123.com",
+      "https://httpstat.us/404",
+      "https://httpstat.us/500",
+      "https://httpstat.us/timeout"
+    ],
+    "performanceUrls": [
+      "https://example.com",
+      "https://httpbin.org/html",
+      "https://httpbin.org/json",
+      "https://httpbin.org/delay/1"
+    ],
+    "batchTestSizes": [3, 5, 10, 25]
+  },
+  
+  "performanceCriteria": {
+    "singleExtraction": {
+      "maxProcessingTime": 10000,
+      "avgProcessingTime": 7000,
+      "maxResponseTime": 15000
+    },
+    "batchExtraction": {
+      "maxBatchTime": 30000,
+      "maxTimePerUrl": 8000,
+      "minSuccessRate": 60,
+      "maxConcurrency": 5
+    },
+    "apiResponses": {
+      "health": 100,
+      "info": 200,
+      "history": 500,
+      "maxVariance": 2.0
+    },
+    "memory": {
+      "maxIncrease": 52428800,
+      "maxPermanentIncrease": 20971520
+    }
+  },
+  
+  "testScenarios": {
+    "smoke": [
+      "TC001: Single URL Content Extraction",
+      "TC101: Health Check Endpoint", 
+      "TC401: Single URL Performance Benchmarks"
+    ],
+    "core": [
+      "TC001: Single URL Content Extraction",
+      "TC002: Batch URL Extraction",
+      "TC003: Sitemap Discovery",
+      "TC004: Extraction History Management"
+    ],
+    "api": [
+      "TC101: Health Check Endpoint",
+      "TC102: Service Info Endpoint", 
+      "TC103: Content Conversion API",
+      "TC104: Batch Extraction API"
+    ],
+    "errorHandling": [
+      "TC301: Invalid URL Handling",
+      "TC302: Network Failure Scenarios",
+      "TC303: Rate Limiting and Overload",
+      "TC304: Graceful Error Recovery"
+    ],
+    "performance": [
+      "TC401: Single URL Performance Benchmarks",
+      "TC402: Batch Processing Performance",
+      "TC403: API Response Time Monitoring",
+      "TC404: Memory Usage Monitoring",
+      "TC405: Database Performance"
+    ]
+  },
+  
+  "containerEnvironment": {
+    "services": {
+      "application": {
+        "image": "knowledge-platform:latest",
+        "port": 3002,
+        "healthCheck": "/api/health",
+        "dependencies": ["database"]
+      },
+      "database": {
+        "image": "postgres:15-alpine",
+        "port": 5432,
+        "healthCheck": "pg_isready",
+        "initScript": "firecrawl-service/database/init/01-init-database.sql"
+      }
+    },
+    "network": "sitemap-dev-network",
+    "volumes": ["postgres_dev_data", "redis_dev_data"]
+  },
+  
+  "cicd": {
+    "triggers": ["pull_request", "push_to_main", "nightly"],
+    "parallelization": {
+      "maxWorkers": 4,
+      "testSharding": true,
+      "browserMatrix": ["chromium", "firefox", "webkit"]
+    },
+    "reporting": {
+      "formats": ["html", "json", "junit"],
+      "artifacts": ["screenshots", "videos", "traces"],
+      "retention": "30 days"
+    },
+    "quality_gates": {
+      "minPassRate": 95,
+      "maxDuration": 600,
+      "performanceRegression": 10
+    }
+  },
+  
+  "debugging": {
+    "options": {
+      "headed": false,
+      "slowMo": 0,
+      "video": "retain-on-failure",
+      "screenshot": "only-on-failure",
+      "trace": "on-first-retry"
+    },
+    "devMode": {
+      "headed": true,
+      "slowMo": 500,
+      "video": "on",
+      "screenshot": "on", 
+      "trace": "on"
+    }
+  }
+}

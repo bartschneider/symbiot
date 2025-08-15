@@ -1,3 +1,4 @@
+'use client';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   batchExtractContent,
@@ -166,7 +167,7 @@ export function useContentExtraction(options: UseContentExtractionOptions = {}) 
       }
 
       // For large selections, process in chunks
-      console.log(`Processing ${urls.length} URLs in chunks of ${CHUNK_SIZE}`);
+      // console.log(`Processing ${urls.length} URLs in chunks of ${CHUNK_SIZE}`); // Disabled to prevent console overflow
       
       const chunks = [];
       for (let i = 0; i < urls.length; i += CHUNK_SIZE) {
@@ -189,7 +190,7 @@ export function useContentExtraction(options: UseContentExtractionOptions = {}) 
           percentage: Math.round((totalProcessed / urls.length) * 100)
         };
 
-        console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} URLs)`);
+        // console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} URLs)`); // Disabled to prevent console overflow
 
         // Update progress
         setState(prev => ({
@@ -442,7 +443,7 @@ export function useContentExtraction(options: UseContentExtractionOptions = {}) 
       options: lastRequestRef.current.options
     };
     
-    console.log(`Retrying ${state.failedUrls.length} failed URLs:`, state.failedUrls);
+    // console.log(`Retrying ${state.failedUrls.length} failed URLs:`, state.failedUrls); // Disabled to prevent console overflow
     return batchExtract(retryRequest);
   }, [batchExtract, state.failedUrls]);
 

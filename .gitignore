@@ -182,3 +182,4 @@ kustomization.yaml
 # Go
 backend/bin/
 backend/tmp/
+/src/generated/prisma

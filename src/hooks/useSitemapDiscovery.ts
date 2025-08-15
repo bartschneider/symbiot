@@ -1,3 +1,4 @@
+'use client';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   discoverSitemap as apiDiscoverSitemap, 
@@ -56,18 +57,54 @@ export function useSitemapDiscovery(options: UseSitemapDiscoveryOptions = {}) {
   const convertToLinkData = useCallback((result: SitemapDiscoveryResult): LinkData[] => {
     const linkData: LinkData[] = [];
     
-    Object.entries(result.data.categories).forEach(([category, links]) => {
-      links.forEach((link, index) => {
-        linkData.push({
-          id: `${category}-${index}-${link.url}`,
-          url: link.url,
-          category: category as LinkCategory,
-          lastmod: link.lastmod,
-          changefreq: link.changefreq,
-          priority: link.priority
+    try {
+      // Validate that categories exist and have the expected structure
+      if (!result.data.categories || typeof result.data.categories !== 'object') {
+        console.error('Invalid categories structure in sitemap result:', result.data);
+        return linkData;
+      }
+      
+      // Expected category keys
+      const expectedCategories: LinkCategory[] = ['internal', 'external', 'files', 'email', 'phone', 'anchors'];
+      
+      Object.entries(result.data.categories).forEach(([category, links]) => {
+        // Validate category is expected
+        if (!expectedCategories.includes(category as LinkCategory)) {
+          console.warn(`Unexpected category '${category}' in sitemap result, skipping`);
+          return;
+        }
+        
+        // Validate links is an array
+        if (!Array.isArray(links)) {
+          console.error(`Category '${category}' links is not an array:`, links);
+          return;
+        }
+        
+        links.forEach((link, index) => {
+          // Handle both string URLs and LinkEntry objects
+          const linkUrl = typeof link === 'string' ? link : link.url;
+          const linkData_entry = typeof link === 'object' ? link : { url: link };
+          
+          if (!linkUrl) {
+            console.warn(`Invalid link at category '${category}', index ${index}:`, link);
+            return;
+          }
+          
+          linkData.push({
+            id: `${category}-${index}-${linkUrl}`,
+            url: linkUrl,
+            category: category as LinkCategory,
+            lastmod: linkData_entry.lastmod,
+            changefreq: linkData_entry.changefreq,
+            priority: linkData_entry.priority
+          });
         });
       });
-    });
+      
+      console.log(`Converted ${linkData.length} links from ${Object.keys(result.data.categories).length} categories`);
+    } catch (error) {
+      console.error('Error converting sitemap data to LinkData format:', error);
+    }
     
     return linkData;
   }, []);

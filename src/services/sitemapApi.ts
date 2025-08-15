@@ -10,8 +10,8 @@ import {
   ApiError
 } from '@/types/sitemap';
 
-// Configuration - Direct connection to Firecrawl service (Phase 1 fix)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Configuration - Next.js API routes (Phase 2 implementation)
+const API_BASE_URL = '';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 // Error handling utility
@@ -124,7 +124,7 @@ export async function discoverSitemap(
 export async function batchExtractContent(
   request: BatchScrapingRequest
 ): Promise<BatchScrapingResult> {
-  console.log('Sending batch request:', JSON.stringify(request, null, 2));
+  // console.log('Sending batch request:', JSON.stringify(request, null, 2)); // Disabled to prevent console overflow
   const response = await apiRequest<BatchScrapingResult['data']>('/api/sitemap/batch', {
     method: 'POST',
     body: JSON.stringify(request),

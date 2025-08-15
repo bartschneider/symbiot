@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+'use client';
+import { useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { motion } from 'framer-motion';
 import { theme } from '@/styles/theme';
@@ -135,12 +136,20 @@ export function HistoryChecker({
     checkHistory
   } = historyHook;
 
+  // Use refs to store latest callback references without triggering re-renders
+  const checkHistoryRef = useRef(checkHistory);
+  const onHistoryLoadedRef = useRef(onHistoryLoaded);
+  
+  // Update refs on each render
+  checkHistoryRef.current = checkHistory;
+  onHistoryLoadedRef.current = onHistoryLoaded;
+
   // Auto-check history when URL changes
   useEffect(() => {
     const trimmed = url.trim();
     if (trimmed) {
       // Debug trace for lifecycle
-      if (process.env.NODE_ENV !== 'production') {
+      if (false) { // Disabled to prevent console overflow 
         // eslint-disable-next-line no-console
         console.log('[EXTRACT-FE] HistoryChecker:effect', {
           url: trimmed,
@@ -149,9 +158,9 @@ export function HistoryChecker({
           hasError: !!historyState.error
         });
       }
-      checkHistory(trimmed)
+      checkHistoryRef.current(trimmed)
         .then(history => {
-          if (process.env.NODE_ENV !== 'production') {
+          if (false) { // Disabled to prevent console overflow
             // eslint-disable-next-line no-console
             console.log('[EXTRACT-FE] HistoryChecker:onHistoryLoaded', {
               exists: history?.exists,
@@ -159,17 +168,17 @@ export function HistoryChecker({
               sessionIdPrefix: history?.sessionId ? String(history.sessionId).slice(0, 8) : undefined
             });
           }
-          onHistoryLoaded?.(history);
+          onHistoryLoadedRef.current?.(history);
         })
         .catch((e) => {
-          if (process.env.NODE_ENV !== 'production') {
+          if (false) { // Disabled to prevent console overflow
             // eslint-disable-next-line no-console
             console.log('[EXTRACT-FE] HistoryChecker:checkHistory:error', { message: (e as any)?.message });
           }
           // Error handled by the hook
         });
     }
-  }, [url, checkHistory, onHistoryLoaded, historyState.checking, historyState.history, historyState.error]);
+  }, [url]); // Only depend on URL to prevent infinite loop
 
   const getStatus = () => {
     if (historyState.checking) return 'checking';
@@ -187,7 +196,7 @@ export function HistoryChecker({
 
   const status = getStatus();
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (false) { // Disabled to prevent console overflow
     // eslint-disable-next-line no-console
     console.log('[EXTRACT-FE] HistoryChecker:render', {
       status,

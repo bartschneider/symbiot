@@ -1,0 +1,92 @@
+# Dev Container Dockerfile for Knowledge Graph Platform
+# Optimized for development with Playwright and testing tools
+
+FROM node:20-alpine AS base
+
+# Install system dependencies including browsers for Playwright
+RUN apk add --no-cache \
+    git \
+    curl \
+    bash \
+    zsh \
+    wget \
+    ca-certificates \
+    chromium \
+    firefox
+
+# Set up working directory
+WORKDIR /workspace
+
+# Create non-root user with dynamic GID/UID detection
+RUN EXISTING_GID=$(getent group 1000 | cut -d: -f1 || echo "") && \
+    EXISTING_UID=$(getent passwd 1000 | cut -d: -f1 || echo "") && \
+    if [ -n "$EXISTING_GID" ]; then \
+        echo "Group with GID 1000 exists: $EXISTING_GID, using GID 1001"; \
+        addgroup -g 1001 -S vscode; \
+        USER_GID=1001; \
+    else \
+        addgroup -g 1000 -S vscode; \
+        USER_GID=1000; \
+    fi && \
+    if [ -n "$EXISTING_UID" ]; then \
+        echo "User with UID 1000 exists: $EXISTING_UID, using UID 1001"; \
+        adduser -S vscode -u 1001 -G vscode -s /bin/zsh; \
+    else \
+        adduser -S vscode -u 1000 -G vscode -s /bin/zsh; \
+    fi && \
+    mkdir -p /home/vscode/.cache && \
+    chown -R vscode:vscode /home/vscode
+
+# Install global npm packages
+RUN npm install -g \
+    @playwright/test \
+    typescript \
+    prisma \
+    npm-check-updates
+
+# Copy package files and install dependencies
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY playwright.config.ts ./
+
+# Install dependencies
+RUN npm ci
+
+# Install Playwright browsers
+ENV PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers
+RUN npx playwright install chromium firefox webkit
+
+# Set up Playwright dependencies (Alpine Linux specific)
+# Note: install-deps doesn't work on Alpine, browsers already installed above
+
+# Copy source code
+COPY src/ ./src/
+COPY public/ ./public/
+COPY tests/ ./tests/
+COPY prisma/ ./prisma/
+COPY .env.example ./.env.example
+
+# Set proper permissions
+RUN chown -R vscode:vscode /workspace && \
+    chown -R vscode:vscode /tmp/playwright-browsers
+
+# Switch to non-root user
+USER vscode
+
+# Set up shell environment
+RUN echo 'export PATH="$PATH:/workspace/node_modules/.bin"' >> ~/.zshrc && \
+    echo 'export PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers' >> ~/.zshrc && \
+    echo 'alias pw="npx playwright"' >> ~/.zshrc && \
+    echo 'alias test:e2e="npm run test:e2e"' >> ~/.zshrc && \
+    echo 'alias test:debug="npm run test:e2e:debug"' >> ~/.zshrc
+
+# Expose ports for development services
+EXPOSE 5173 9323
+
+# Set default environment
+ENV NODE_ENV=development
+ENV PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers
+ENV SHELL=/bin/zsh
+
+# Default command to keep container running
+CMD ["sleep", "infinity"]

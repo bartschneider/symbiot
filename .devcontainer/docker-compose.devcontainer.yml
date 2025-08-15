@@ -1,0 +1,106 @@
+# Dev Container Compose Extension
+# Extends docker-compose.user-testing.yml with development-specific services
+
+services:
+  # Development Container Service
+  devcontainer:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.devcontainer
+    platform: linux/arm64
+    container_name: kgp-devcontainer
+    environment:
+      - NODE_ENV=development
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-kgp-dev-project}
+      - DATABASE_URL=postgresql://postgres:testing-password@postgres-testing:5432/knowledge_platform_dev?schema=public
+      - NEXTAUTH_SECRET=dev-container-secret-not-for-production
+      - NEXTAUTH_URL=http://localhost:5173
+      - PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers
+      - VITE_API_BASE_URL=http://localhost:3001
+      - VITE_APP_NAME=Knowledge Graph Platform (Dev Container)
+      - BASE_URL=http://localhost:5173
+      - CI=false
+    ports:
+      - "5173:5173"   # Next.js dev server
+      - "9323:9323"   # Playwright debug server
+    volumes:
+      - ..:/workspace:cached
+      - kgp-devcontainer-node-modules:/workspace/node_modules
+      - kgp-devcontainer-playwright:/tmp/playwright-browsers
+      - /var/run/docker.sock:/var/run/docker-host.sock
+    depends_on:
+      frontend-testing:
+        condition: service_healthy
+      firecrawl-service:
+        condition: service_healthy
+      postgres-testing:
+        condition: service_healthy
+      redis-testing:
+        condition: service_healthy
+    networks:
+      - testing-network
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sleep infinity
+    
+    # Dev container specific health check
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Enhanced test runner for dev container integration
+  devcontainer-test-runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    platform: linux/arm64
+    container_name: kgp-devcontainer-test-runner
+    environment:
+      - NODE_ENV=test
+      - FRONTEND_URL=http://devcontainer:5173
+      - API_URL=http://firecrawl-service:3001
+      - HEADLESS=true
+      - CI=false
+      - PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers
+      - TEST_TIMEOUT=120000
+      - PLAYWRIGHT_HTML_REPORT=/workspace/test-results/playwright-report
+    volumes:
+      - ..:/workspace:cached
+      - kgp-devcontainer-playwright:/tmp/playwright-browsers
+      - ../test-results:/workspace/test-results
+    depends_on:
+      devcontainer:
+        condition: service_healthy
+      firecrawl-service:
+        condition: service_healthy
+    networks:
+      - testing-network
+    profiles:
+      - devcontainer-testing
+    working_dir: /workspace
+    command: ["bash", ".devcontainer/run-tests.sh"]
+
+  # Playwright debug service for live testing
+  playwright-debug:
+    extends:
+      service: devcontainer
+    container_name: kgp-playwright-debug
+    environment:
+      - PWDEBUG=1
+      - PLAYWRIGHT_INSPECTOR=0.0.0.0:9323
+      - BROWSER=chromium
+    ports:
+      - "9323:9323"
+    profiles:
+      - debug
+    command: ["bash", "-c", "npx playwright test --debug --headed=false"]
+
+# Additional volumes for dev container
+volumes:
+  kgp-devcontainer-node-modules:
+    driver: local
+  kgp-devcontainer-playwright:
+    driver: local

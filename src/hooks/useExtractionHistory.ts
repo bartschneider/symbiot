@@ -1,3 +1,4 @@
+'use client';
 import { useState, useCallback } from 'react';
 import {
   checkExtractionHistory,
@@ -17,7 +18,8 @@ import {
   ApiError
 } from '@/types/sitemap';
 
-const FE_DEBUG = typeof window !== 'undefined' ? (window as any).__DEBUG_EXTRACT__ ?? (process.env.NODE_ENV !== 'production') : (process.env.NODE_ENV !== 'production');
+// Emergency fix: Disable FE_DEBUG to prevent console overflow during extraction
+const FE_DEBUG = false;
 const feLog = (event: string, ctx: Record<string, unknown> = {}) => {
   if (!FE_DEBUG) return;
   try {
