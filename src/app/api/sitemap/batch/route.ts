@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { scrapeUrl } from '@/lib/scraper'
+import { backgroundJobProcessor } from '@/lib/background-jobs'
 
 interface BatchScrapingRequest {
   urls: string[]
@@ -9,6 +11,12 @@ interface BatchScrapingRequest {
     removeCodeBlocks?: boolean
     waitForLoad?: number
     maxConcurrent?: number
+    enableLLMProcessing?: boolean
+    llmOptions?: {
+      includeRelationships?: boolean
+      includeAnalysis?: boolean
+      confidenceThreshold?: number
+    }
   }
 }
 
@@ -33,6 +41,26 @@ interface ScrapingResult {
   metadata: {
     timestamp: string
     httpStatusCode?: number
+  }
+  llmProcessing?: {
+    enabled: boolean
+    jobId?: string
+    entities?: Array<{
+      name: string
+      type: string
+      confidence: number
+    }>
+    relationships?: Array<{
+      sourceEntity: string
+      targetEntity: string
+      type: string
+      confidence: number
+    }>
+    summary?: string
+    keyInsights?: string[]
+    processingTime?: number
+    totalCost?: number
+    error?: string
   }
 }
 
@@ -61,21 +89,24 @@ interface BatchScrapingResult {
   }
 }
 
-async function processUrl(url: string, options: any, sessionId: string, chunkNumber: number, sequenceNumber: number): Promise<ScrapingResult> {
+async function processUrl(url: string, options: Record<string, unknown>, sessionId: string, chunkNumber: number, sequenceNumber: number): Promise<ScrapingResult> {
   const startTime = Date.now()
   
   try {
     // Validate URL
     new URL(url)
     
-    // Simulate processing time (replace with actual Firecrawl integration)
-    const processingTime = Math.random() * 3000 + 500 // 0.5-3.5 seconds
-    await new Promise(resolve => setTimeout(resolve, Math.min(processingTime, 5000)))
+    console.log(`Processing URL: ${url} (chunk: ${chunkNumber}, sequence: ${sequenceNumber})`)
     
-    // Mock success rate (90% success rate for testing)
-    const success = Math.random() > 0.1
+    // Real content extraction using scraper
+    const scrapingResult = await scrapeUrl(url, {
+      includeImages: options.includeImages as boolean,
+      includeTables: options.includeTables as boolean,
+      removeCodeBlocks: options.removeCodeBlocks as boolean,
+      waitForLoad: options.waitForLoad as number
+    })
     
-    if (!success) {
+    if (!scrapingResult.success || !scrapingResult.data) {
       // Create failed URL extraction record
       await prisma.urlExtraction.create({
         data: {
@@ -84,11 +115,13 @@ async function processUrl(url: string, options: any, sessionId: string, chunkNum
           chunkNumber,
           sequenceNumber,
           status: 'failed',
-          httpStatusCode: 404,
+          httpStatusCode: scrapingResult.metadata?.httpStatusCode || 500,
           processingTimeMs: Date.now() - startTime,
-          errorCode: 'FETCH_FAILED',
-          errorMessage: 'Failed to fetch content from URL',
-          retryCount: 0
+          errorCode: scrapingResult.error?.code || 'SCRAPING_FAILED',
+          errorMessage: scrapingResult.error?.message || 'Content extraction failed',
+          retryCount: 0,
+          llmProcessingEnabled: (options.enableLLMProcessing as boolean) || false,
+          llmProcessingStatus: (options.enableLLMProcessing as boolean) ? 'skipped' : null
         }
       })
       
@@ -96,8 +129,8 @@ async function processUrl(url: string, options: any, sessionId: string, chunkNum
         success: false,
         url,
         error: {
-          code: 'FETCH_FAILED',
-          message: 'Failed to fetch content from URL'
+          code: scrapingResult.error?.code || 'SCRAPING_FAILED',
+          message: scrapingResult.error?.message || 'Content extraction failed'
         },
         stats: {
           processingTime: Date.now() - startTime,
@@ -106,19 +139,17 @@ async function processUrl(url: string, options: any, sessionId: string, chunkNum
         },
         metadata: {
           timestamp: new Date().toISOString(),
-          httpStatusCode: 404
+          httpStatusCode: scrapingResult.metadata?.httpStatusCode || 500
         }
       }
     }
     
-    // Mock successful extraction
-    const urlObj = new URL(url)
-    const mockContent = `# ${urlObj.hostname}\n\nContent extracted from: ${url}\n\nThis is a simulated batch extraction.\n\n## Processing Info\n- Chunk: ${chunkNumber}\n- Sequence: ${sequenceNumber}\n- Include Images: ${options.includeImages}\n- Include Tables: ${options.includeTables}`
+    const markdownContent = scrapingResult.data.markdown
+    const contentSize = markdownContent.length
+    const imageCount = scrapingResult.data.images?.length || 0
     
-    const finalProcessingTime = Date.now() - startTime
-    
-    // Create successful URL extraction record
-    await prisma.urlExtraction.create({
+    // Create initial URL extraction record
+    const urlExtraction = await prisma.urlExtraction.create({
       data: {
         sessionId,
         url,
@@ -126,38 +157,95 @@ async function processUrl(url: string, options: any, sessionId: string, chunkNum
         sequenceNumber,
         status: 'success',
         httpStatusCode: 200,
-        contentSizeBytes: BigInt(mockContent.length),
-        processingTimeMs: finalProcessingTime,
-        markdownContent: mockContent,
-        title: `Content from ${urlObj.hostname}`,
-        description: `Extracted content from ${url}`,
-        imagesCount: 0,
+        contentSizeBytes: BigInt(contentSize),
+        processingTimeMs: Date.now() - startTime,
+        markdownContent,
+        title: scrapingResult.data.title,
+        description: scrapingResult.data.description,
+        imagesCount: imageCount,
         retryCount: 0,
-        processedAt: new Date()
+        processedAt: new Date(),
+        llmProcessingEnabled: (options.enableLLMProcessing as boolean) || false,
+        llmProcessingStatus: (options.enableLLMProcessing as boolean) ? 'pending' : null
       }
     })
     
+    let llmProcessingResult = undefined
+    
+    // Queue LLM processing if enabled (asynchronous)
+    if ((options.enableLLMProcessing as boolean) && markdownContent.trim().length > 100) {
+      try {
+        console.log(`Queueing LLM processing for ${url}`)
+        
+        // Add to background job queue
+        const jobId = await backgroundJobProcessor.addLLMJob({
+          urlExtractionId: urlExtraction.id,
+          sessionId,
+          url,
+          markdownContent,
+          title: scrapingResult.data.title,
+          description: scrapingResult.data.description,
+          options: {
+            includeRelationships: (options.llmOptions as Record<string, unknown>)?.includeRelationships as boolean ?? true,
+            includeAnalysis: (options.llmOptions as Record<string, unknown>)?.includeAnalysis as boolean ?? true,
+            confidenceThreshold: (options.llmOptions as Record<string, unknown>)?.confidenceThreshold as number ?? 0.7
+          }
+        })
+        
+        llmProcessingResult = {
+          enabled: true,
+          jobId
+        }
+        
+        console.log(`LLM processing queued for ${url} (Job ID: ${jobId})`)
+        
+      } catch (llmError) {
+        console.error(`Failed to queue LLM processing for ${url}:`, llmError)
+        
+        // Update with LLM error
+        await prisma.urlExtraction.update({
+          where: { id: urlExtraction.id },
+          data: {
+            llmProcessingStatus: 'failed',
+            llmProcessingError: llmError instanceof Error ? llmError.message : 'Failed to queue LLM processing'
+          }
+        })
+        
+        llmProcessingResult = {
+          enabled: true,
+          error: llmError instanceof Error ? llmError.message : 'Failed to queue LLM processing'
+        }
+      }
+    }
+    
+    // Determine overall success: scraping succeeded AND (if LLM enabled, job was queued successfully)
+    const llmEnabled = (options.enableLLMProcessing as boolean) || false
+    const llmSucceeded = llmProcessingResult ? !llmProcessingResult.error : true
+    const overallSuccess = true // Always true for scraping success, LLM processes asynchronously
+
     return {
-      success: true,
+      success: overallSuccess,
       url,
       data: {
-        markdown: mockContent,
-        title: `Content from ${urlObj.hostname}`,
-        description: `Extracted content from ${url}`,
-        images: []
+        markdown: markdownContent,
+        title: scrapingResult.data.title,
+        description: scrapingResult.data.description,
+        images: scrapingResult.data.images || []
       },
       stats: {
-        processingTime: finalProcessingTime,
-        contentSize: mockContent.length,
-        imageCount: 0
+        processingTime: Date.now() - startTime,
+        contentSize,
+        imageCount
       },
       metadata: {
         timestamp: new Date().toISOString(),
         httpStatusCode: 200
-      }
+      },
+      llmProcessing: llmProcessingResult
     }
     
   } catch (error) {
+    console.error(`Processing error for ${url}:`, error)
     const finalProcessingTime = Date.now() - startTime
     
     // Create failed URL extraction record
@@ -171,7 +259,9 @@ async function processUrl(url: string, options: any, sessionId: string, chunkNum
         processingTimeMs: finalProcessingTime,
         errorCode: 'PROCESSING_ERROR',
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        retryCount: 0
+        retryCount: 0,
+        llmProcessingEnabled: (options.enableLLMProcessing as boolean) || false,
+        llmProcessingStatus: (options.enableLLMProcessing as boolean) ? 'skipped' : null
       }
     })
     
@@ -236,6 +326,12 @@ export async function POST(request: NextRequest) {
       removeCodeBlocks: false,
       waitForLoad: 2000,
       maxConcurrent: 5,
+      enableLLMProcessing: false,
+      llmOptions: {
+        includeRelationships: true,
+        includeAnalysis: true,
+        confidenceThreshold: 0.7
+      },
       ...body.options
     }
 

@@ -24,18 +24,71 @@ const PromptOverlay = styled(motion.div)`
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
   padding: ${theme.spacing.lg};
+  overflow-y: auto;
+  
+  @media (max-height: 800px) {
+    align-items: flex-start;
+    padding: ${theme.spacing.md};
+  }
+  
+  @media (max-height: 600px) {
+    padding: ${theme.spacing.sm};
+  }
 `;
 
 const PromptCard = styled(Card)`
   max-width: 600px;
   width: 100%;
+  max-height: calc(100vh - ${theme.spacing.xl} * 2);
   padding: ${theme.spacing.xl};
   background: ${theme.colors.bg.primary};
   border: 2px solid ${theme.colors.accent}40;
+  overflow-y: auto;
+  margin: ${theme.spacing.xl} auto;
+  
+  /* Custom scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: ${theme.colors.bg.secondary};
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${theme.colors.accent}40;
+    border-radius: 4px;
+    
+    &:hover {
+      background: ${theme.colors.accent}60;
+    }
+  }
+  
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: ${theme.colors.accent}40 ${theme.colors.bg.secondary};
+  
+  @media (max-height: 800px) {
+    max-height: calc(100vh - ${theme.spacing.lg} * 2);
+    padding: ${theme.spacing.lg};
+    margin: ${theme.spacing.lg} auto;
+  }
+  
+  @media (max-height: 600px) {
+    max-height: calc(100vh - ${theme.spacing.md} * 2);
+    padding: ${theme.spacing.md};
+    margin: ${theme.spacing.md} auto;
+  }
+  
+  @media (max-width: 480px) {
+    padding: ${theme.spacing.md};
+    margin: ${theme.spacing.sm} auto;
+  }
 `;
 
 const PromptTitle = styled.h3`
@@ -127,6 +180,11 @@ const ActionGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: ${theme.spacing.md};
+  
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: ${theme.spacing.sm};
+  }
 `;
 
 const ActionCard = styled(motion.div)<{ $recommended?: boolean }>`
@@ -182,6 +240,12 @@ const ButtonRow = styled.div`
   gap: ${theme.spacing.md};
   justify-content: center;
   margin-top: ${theme.spacing.xl};
+  
+  @media (max-width: 480px) {
+    flex-direction: column;
+    gap: ${theme.spacing.sm};
+    margin-top: ${theme.spacing.lg};
+  }
 `;
 
 export function HistoryDecisionPrompt({
@@ -251,7 +315,9 @@ export function HistoryDecisionPrompt({
         exit={{ opacity: 0 }}
         onClick={(e) => e.target === e.currentTarget && handleSkip()}
       >
-        <motion.div>
+        <motion.div
+          style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
+        >
           <PromptCard
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

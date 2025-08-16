@@ -10,6 +10,7 @@ export interface ApiResponse<T = any> {
   meta?: {
     requestId: string
     timestamp: string
+    sessionId?: string
   }
 }
 
@@ -138,10 +139,18 @@ export interface SitemapDiscoveryResult {
 // Content extraction types
 export interface ConversionRequest {
   url: string
-  includeImages?: boolean
-  includeTables?: boolean
-  removeCodeBlocks?: boolean
-  waitForLoad?: number
+  options?: {
+    includeImages?: boolean
+    includeTables?: boolean
+    removeCodeBlocks?: boolean
+    waitForLoad?: number
+    enableLLMProcessing?: boolean
+    llmOptions?: {
+      includeRelationships?: boolean
+      includeAnalysis?: boolean
+      confidenceThreshold?: number
+    }
+  }
 }
 
 export interface ConversionResponse {
@@ -166,6 +175,12 @@ export interface BatchScrapingRequest {
     removeCodeBlocks?: boolean
     waitForLoad?: number
     maxConcurrent?: number
+    enableLLMProcessing?: boolean
+    llmOptions?: {
+      includeRelationships?: boolean
+      includeAnalysis?: boolean
+      confidenceThreshold?: number
+    }
   }
   progressCallback?: string
 }
@@ -173,7 +188,7 @@ export interface BatchScrapingRequest {
 export interface ScrapingResult {
   url: string
   success: boolean
-  content?: {
+  data?: {
     markdown: string
     title?: string
     description?: string
@@ -184,11 +199,34 @@ export interface ScrapingResult {
     message: string
   }
   stats: {
-    originalSize: number
-    markdownSize: number
     processingTime: number
+    contentSize: number
+    imageCount: number
   }
-  processedAt: string
+  metadata: {
+    timestamp: string
+    httpStatusCode?: number
+  }
+  llmProcessing?: {
+    enabled: boolean
+    jobId?: string
+    entities?: Array<{
+      name: string
+      type: string
+      confidence: number
+    }>
+    relationships?: Array<{
+      sourceEntity: string
+      targetEntity: string
+      type: string
+      confidence: number
+    }>
+    summary?: string
+    keyInsights?: string[]
+    processingTime?: number
+    totalCost?: number
+    error?: string
+  }
 }
 
 export interface ScrapingError {
@@ -215,6 +253,11 @@ export interface BatchScrapingResult {
     requestId: string
     startTime: string
     endTime: string
+  }
+  meta?: {
+    requestId: string
+    timestamp: string
+    sessionId?: string
   }
 }
 
